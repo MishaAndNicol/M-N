@@ -1,0 +1,143 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  .dark {
+    color-scheme: dark;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-paper text-ink dark:bg-ink dark:text-paper font-body antialiased;
+    font-feature-settings: "ss01" 1, "cv01" 1;
+  }
+
+  ::selection {
+    @apply bg-thread/20 text-thread;
+  }
+
+  :focus-visible {
+    outline: 2px solid theme("colors.thread");
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-white/60 dark:bg-white/[0.04] backdrop-blur-xl border border-white/40 dark:border-white/[0.08];
+  }
+
+  .container-page {
+    @apply mx-auto w-full max-w-6xl px-6 md:px-10;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .eyebrow {
+    @apply font-mono text-xs uppercase tracking-[0.2em] text-mist;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Seasons - a subtle mood layer, not a reskin. A few components opt in via
+   these variables (corner radius, accent, divider tint); the core palette
+   in tailwind.config.ts never changes. Default (server-render / before JS
+   sets data-season) is the spring values. */
+:root {
+  --season-radius: 1.5rem;
+  --season-radius-sm: 1rem;
+  --season-accent: theme("colors.thread");
+  --season-divider: theme("colors.line");
+}
+.dark {
+  --season-divider: theme("colors.line-dark");
+}
+
+html[data-season="spring"] {
+  --season-radius: 1.75rem;
+  --season-radius-sm: 1.1rem;
+  --season-accent: #e58fa0;
+}
+html[data-season="summer"] {
+  --season-radius: 1.25rem;
+  --season-radius-sm: 0.85rem;
+  --season-accent: #e0a83e;
+}
+html[data-season="autumn"] {
+  --season-radius: 1rem;
+  --season-radius-sm: 0.65rem;
+  --season-accent: #c96a3a;
+}
+html[data-season="winter"] {
+  --season-radius: 0.75rem;
+  --season-radius-sm: 0.5rem;
+  --season-accent: #6f9bd1;
+}
+
+.season-particle {
+  position: absolute;
+  top: -8%;
+  border-radius: 50%;
+  opacity: 0.55;
+  will-change: transform, opacity;
+}
+
+@keyframes season-fall {
+  0% { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0; }
+  10% { opacity: 0.55; }
+  90% { opacity: 0.5; }
+  100% { transform: translateY(115vh) translateX(var(--drift)) rotate(180deg); opacity: 0; }
+}
+
+@keyframes season-flicker {
+  0%, 100% { transform: translateY(0); opacity: 0.15; }
+  50% { transform: translateY(calc(var(--drift) * -1)); opacity: 0.85; }
+}
+
+.season-particle--spring {
+  background: radial-gradient(circle at 35% 35%, #ffd9e2, #e58fa0);
+  animation: season-fall linear infinite;
+}
+.season-particle--autumn {
+  background: radial-gradient(circle at 35% 35%, #f0a860, #c96a3a);
+  border-radius: 30% 70% 60% 40%;
+  animation: season-fall linear infinite;
+}
+.season-particle--winter {
+  background: radial-gradient(circle, #ffffff, #cfe0f5);
+  animation: season-fall linear infinite;
+}
+.season-particle--summer {
+  background: radial-gradient(circle, #fff4c2, #e0a83e);
+  box-shadow: 0 0 8px 2px rgba(224, 168, 62, 0.55);
+  animation: season-flicker ease-in-out infinite;
+}
+
+.dark .season-particle--spring,
+.dark .season-particle--autumn,
+.dark .season-particle--winter,
+.dark .season-particle--summer {
+  opacity: 0.4;
+}
