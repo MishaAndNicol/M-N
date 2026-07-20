@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Film, Link2, Check, Users, Bell, RefreshCw } from "lucide-react";
+import { Film, Link2, Check, Users, Bell, RefreshCw, ListPlus, Play, Trash2 } from "lucide-react";
 import {
   doc,
   onSnapshot,
@@ -13,6 +13,15 @@ import {
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
 import { site } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
+
+// A single entry in the shared playlist - just enough to show a title in
+// the list and re-hydrate the player when picked.
+type Episode = {
+  id: string;
+  title: string;
+  driveLink: string;
+  fileId: string;
+};
 
 // Firestore doc shape - single shared "room" document. Two people only, so
 // no need for a collection of rooms; one document is the whole feature.
@@ -26,6 +35,7 @@ type RoomState = {
   countdownStartedAt: Timestamp | null;
   pauseSignalBy: string | null;
   pauseSignalAt: Timestamp | null;
+  playlist: Episode[];
 };
 
 const EMPTY_ROOM: RoomState = {
@@ -38,6 +48,7 @@ const EMPTY_ROOM: RoomState = {
   countdownStartedAt: null,
   pauseSignalBy: null,
   pauseSignalAt: null,
+  playlist: [],
 };
 
 const ROOM_PATH = ["watchRoom", "room"] as const;
@@ -58,12 +69,51 @@ function extractDriveFileId(url: string): string | null {
   return null;
 }
 
+// Turns pasted text (one episode per line) into Episode objects. Accepts a
+// bare link, or "Title - link" / "Title | link" / "Title, link" - anything
+// with the link at the end of the line after a separator. Lines that don't
+// contain a recognizable Drive link are reported back as errors instead of
+// silently dropped.
+function parseBulkLinks(text: string, startIndex: number): { episodes: Episode[]; errors: string[] } {
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  const episodes: Episode[] = [];
+  const errors: string[] = [];
+
+  lines.forEach((line, i) => {
+    const sepMatch = line.match(/^(.*?)\s*[-|,]\s*(https?:\/\/\S+)$/);
+    const title = sepMatch ? sepMatch[1].trim() : "";
+    const link = sepMatch ? sepMatch[2].trim() : line;
+
+    const fileId = extractDriveFileId(link);
+    if (!fileId) {
+      errors.push(`Строка ${i + 1}: «${line.slice(0, 60)}» — не похоже на ссылку Google Drive`);
+      return;
+    }
+
+    episodes.push({
+      id: `${Date.now()}-${startIndex + i}-${Math.random().toString(36).slice(2, 7)}`,
+      title: title || `Серия ${startIndex + episodes.length + 1}`,
+      driveLink: link,
+      fileId,
+    });
+  });
+
+  return { episodes, errors };
+}
+
 export function WatchRoom() {
   const [connected] = useState(isFirebaseConfigured);
   const [room, setRoom] = useState<RoomState>(EMPTY_ROOM);
   const [linkInput, setLinkInput] = useState("");
   const [titleInput, setTitleInput] = useState("");
   const [linkError, setLinkError] = useState<string | null>(null);
+  const [bulkInput, setBulkInput] = useState("");
+  const [bulkErrors, setBulkErrors] = useState<string[]>([]);
+  const [bulkAddedCount, setBulkAddedCount] = useState<number | null>(null);
   const [whoAmI, setWhoAmI] = useState<"a" | "b" | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [pauseBanner, setPauseBanner] = useState(false);
@@ -126,6 +176,33 @@ export function WatchRoom() {
     });
     setLinkInput("");
     setTitleInput("");
+  }
+
+  function handleBulkAdd() {
+    const { episodes, errors } = parseBulkLinks(bulkInput, room.playlist.length);
+    setBulkErrors(errors);
+    if (episodes.length) {
+      writeRoom({ playlist: [...room.playlist, ...episodes] });
+      setBulkInput("");
+      setBulkAddedCount(episodes.length);
+      setTimeout(() => setBulkAddedCount(null), 4000);
+    }
+  }
+
+  function playEpisode(ep: Episode) {
+    writeRoom({
+      driveLink: ep.driveLink,
+      fileId: ep.fileId,
+      title: ep.title,
+      setBy: whoAmI === "a" ? nameA : whoAmI === "b" ? nameB : "",
+      readyA: false,
+      readyB: false,
+      countdownStartedAt: null,
+    });
+  }
+
+  function removeEpisode(id: string) {
+    writeRoom({ playlist: room.playlist.filter((ep) => ep.id !== id) });
   }
 
   function toggleReady() {
@@ -262,6 +339,92 @@ export function WatchRoom() {
               below will show an access error.
             </p>
           </div>
+
+          {/* bulk-add many episodes at once */}
+          <div className="rounded-[var(--season-radius-sm)] border border-line p-6 dark:border-line-dark">
+            <p className="eyebrow mb-4 flex items-center gap-2">
+              <ListPlus className="h-3.5 w-3.5" /> Add a whole season at once
+            </p>
+            <p className="mb-3 text-xs text-mist">
+              Paste one link per line. Optionally add a title before it, separated by{" "}
+              <code className="font-mono">-</code>, <code className="font-mono">|</code>, or{" "}
+              <code className="font-mono">,</code> — e.g.{" "}
+              <code className="font-mono">Episode 1 - https://drive.google.com/file/d/.../view</code>. A bare
+              link on its own line works too; it&apos;ll be numbered automatically.
+            </p>
+            <textarea
+              value={bulkInput}
+              onChange={(e) => setBulkInput(e.target.value)}
+              placeholder={"Episode 1 - https://drive.google.com/file/d/FILE_ID_1/view\nEpisode 2 - https://drive.google.com/file/d/FILE_ID_2/view\n..."}
+              rows={5}
+              className="w-full rounded-[var(--season-radius-sm)] border border-line bg-transparent p-3 font-mono text-xs outline-none transition-colors focus:border-thread dark:border-line-dark"
+            />
+            <div className="mt-3 flex items-center gap-3">
+              <button
+                onClick={handleBulkAdd}
+                disabled={!bulkInput.trim()}
+                className="rounded-full bg-thread px-5 py-2 text-sm text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+              >
+                Add all
+              </button>
+              {bulkAddedCount !== null && (
+                <span className="text-xs text-thread">Added {bulkAddedCount} episode(s) ✓</span>
+              )}
+            </div>
+            {bulkErrors.length > 0 && (
+              <div className="mt-3 space-y-1">
+                {bulkErrors.map((err, i) => (
+                  <p key={i} className="text-xs text-red-500">
+                    {err}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* the playlist itself */}
+          {room.playlist.length > 0 && (
+            <div className="rounded-[var(--season-radius-sm)] border border-line p-6 dark:border-line-dark">
+              <p className="eyebrow mb-4">Playlist ({room.playlist.length})</p>
+              <ul className="space-y-2">
+                {room.playlist.map((ep, i) => {
+                  const isPlaying = ep.fileId === room.fileId;
+                  return (
+                    <li
+                      key={ep.id}
+                      className={cn(
+                        "flex items-center justify-between gap-3 rounded-full border px-4 py-2 text-sm transition-colors",
+                        isPlaying
+                          ? "border-thread bg-thread/[0.06] text-thread"
+                          : "border-line dark:border-line-dark"
+                      )}
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="shrink-0 text-xs text-mist">{i + 1}.</span>
+                        <span className="truncate">{ep.title}</span>
+                      </span>
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        <button
+                          onClick={() => playEpisode(ep)}
+                          title="Play this episode"
+                          className="rounded-full p-1.5 transition-colors hover:bg-thread/10 hover:text-thread"
+                        >
+                          <Play className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => removeEpisode(ep.id)}
+                          title="Remove from playlist"
+                          className="rounded-full p-1.5 transition-colors hover:bg-red-500/10 hover:text-red-500"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
 
           {/* player + sync controls */}
           {embedUrl ? (
