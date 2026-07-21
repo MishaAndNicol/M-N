@@ -6,18 +6,23 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "#0A0B0D",
-        paper: "#F7F6F2",
-        mist: "#8A8D93",
-        line: "#E4E2DC",
-        "line-dark": "#1E2024",
-        thread: "#4C6FFF",
-        "thread-soft": "#8FA4FF",
+        ink: "#12100D",
+        paper: "#F6F1E6",
+        mist: "#8A8578",
+        line: "#E5DDCC",
+        "line-dark": "#241F1A",
+        // Warm-ink rust in light mode (handwritten pen color), warm ember
+        // glow in dark mode (cinematic accent) - same utility classes
+        // everywhere (thread, thread/20, border-thread...), the color
+        // itself switches with the theme via the CSS variables below.
+        thread: "rgb(var(--accent-rgb) / <alpha-value>)",
+        "thread-soft": "rgb(var(--accent-soft-rgb) / <alpha-value>)",
         ember: "#D96B4C",
       },
       fontFamily: {
         display: ["var(--font-fraunces)", "serif"],
-        body: ["var(--font-inter)", "sans-serif"],
+        body: ["var(--font-work-sans)", "sans-serif"],
+        hand: ["var(--font-caveat)", "cursive"],
         mono: ["var(--font-mono)", "monospace"],
       },
       backgroundImage: {
