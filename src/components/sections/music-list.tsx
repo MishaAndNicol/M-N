@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "framer-motion";
-import { Play, Pause, Music2, ExternalLink } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Play, Pause, Music2, ExternalLink, ChevronDown } from "lucide-react";
 import { site } from "@/lib/site-config";
 import { resolveR2Url } from "@/lib/r2";
 
@@ -17,7 +17,26 @@ function formatTime(totalSeconds: number): string {
 
 export function MusicList() {
   const playlist = site.playlist;
+
+  // Group tracks by artist, preserving each group's first-appearance order
+  // in the underlying playlist array (so it matches site-config's order,
+  // not alphabetical) - each group keeps the original playlist index so
+  // the player state below still just works off a flat index.
+  const groups = useMemo(() => {
+    const byArtist = new Map<string, { title: string; index: number }[]>();
+    playlist.forEach((track, index) => {
+      const list = byArtist.get(track.artist) ?? [];
+      list.push({ title: track.title, index });
+      byArtist.set(track.artist, list);
+    });
+    return Array.from(byArtist.entries()).map(([artist, tracks]) => ({ artist, tracks }));
+  }, [playlist]);
+
   const [activeIndex, setActiveIndex] = useState(0);
+  // Which artist group is expanded - starts on whichever group the first
+  // track belongs to, so something is open by default instead of an empty
+  // list of collapsed headers.
+  const [openArtist, setOpenArtist] = useState<string | null>(playlist[0]?.artist ?? null);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0); // mock-timer seconds, only used when there's no real source at all
 
@@ -90,6 +109,15 @@ export function MusicList() {
 
   function playNext() {
     setActiveIndex((i) => (i + 1 < playlist.length ? i + 1 : i));
+  }
+
+  function selectTrack(index: number) {
+    setActiveIndex(index);
+    setOpenArtist(playlist[index]?.artist ?? null);
+  }
+
+  function toggleGroup(artist: string) {
+    setOpenArtist((current) => (current === artist ? null : artist));
   }
 
   if (playlist.length === 0) {
@@ -227,47 +255,74 @@ export function MusicList() {
         )}
       </div>
 
-      {/* Playlist */}
-      <ul className="divide-y divide-line dark:divide-line-dark">
-        {playlist.map((s, i) => (
-          <motion.li
-            key={s.title + i}
-            initial={{ opacity: 0, x: 12 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: i * 0.06 }}
-          >
-            <button
-              onClick={() => setActiveIndex(i)}
-              className={`flex w-full items-center gap-4 py-4 text-left transition-colors ${
-                activeIndex === i ? "text-thread" : "hover:text-thread"
-              }`}
-            >
-              <span
-                className={`grid h-9 w-9 shrink-0 place-items-center rounded-full border text-current transition-colors ${
-                  activeIndex === i ? "border-thread" : "border-line dark:border-line-dark"
-                }`}
+      {/* Playlist, grouped by artist */}
+      <div className="space-y-2">
+        {groups.map((group) => {
+          const isOpen = openArtist === group.artist;
+          return (
+            <div key={group.artist} className="border-b border-line last:border-0 dark:border-line-dark">
+              <button
+                onClick={() => toggleGroup(group.artist)}
+                className="flex w-full items-center justify-between py-4 text-left transition-colors hover:text-thread"
               >
-                {activeIndex === i && playing ? (
-                  <Pause className="h-3.5 w-3.5" />
-                ) : (
-                  <Play className="h-3.5 w-3.5" />
+                <span className="flex items-baseline gap-2.5">
+                  <span className="font-display text-lg text-ink dark:text-paper">{group.artist}</span>
+                  <span className="text-xs text-mist">
+                    {group.tracks.length} {group.tracks.length === 1 ? "track" : "tracks"}
+                  </span>
+                </span>
+                <ChevronDown
+                  className={`h-4 w-4 shrink-0 text-mist transition-transform ${isOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+
+              <AnimatePresence initial={false}>
+                {isOpen && (
+                  <motion.ul
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: "easeInOut" }}
+                    className="overflow-hidden"
+                  >
+                    {group.tracks.map(({ title, index }) => {
+                      const track = playlist[index];
+                      return (
+                        <li key={title + index}>
+                          <button
+                            onClick={() => selectTrack(index)}
+                            className={`flex w-full items-center gap-4 py-3 pl-1 text-left transition-colors ${
+                              activeIndex === index ? "text-thread" : "hover:text-thread"
+                            }`}
+                          >
+                            <span
+                              className={`grid h-9 w-9 shrink-0 place-items-center rounded-full border text-current transition-colors ${
+                                activeIndex === index ? "border-thread" : "border-line dark:border-line-dark"
+                              }`}
+                            >
+                              {activeIndex === index && playing ? (
+                                <Pause className="h-3.5 w-3.5" />
+                              ) : (
+                                <Play className="h-3.5 w-3.5" />
+                              )}
+                            </span>
+                            <span className="min-w-0 flex-1 font-display text-base text-ink dark:text-paper">
+                              {title}
+                            </span>
+                            {(track.audioUrl || track.spotifyUrl || track.youtubeUrl) && (
+                              <ExternalLink className="h-3.5 w-3.5 shrink-0 text-mist" />
+                            )}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </motion.ul>
                 )}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="font-display text-lg text-ink dark:text-paper">{s.title}</p>
-                <p className="text-sm text-mist">
-                  {s.artist}
-                  {s.note ? ` - ${s.note}` : ""}
-                </p>
-              </div>
-              {(s.audioUrl || s.spotifyUrl || s.youtubeUrl) && (
-                <ExternalLink className="h-3.5 w-3.5 shrink-0 text-mist" />
-              )}
-            </button>
-          </motion.li>
-        ))}
-      </ul>
+              </AnimatePresence>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -15,7 +15,7 @@ function project(lat: number, lng: number, w: number, h: number) {
 }
 
 // The thread runs from Nicol's city to Misha's city, in that order - the
-// "Flight Progress" plane travels start (Prague) → end (Suwon).
+// "Flight Progress" plane travels start (Brno) → end (Suwon).
 const AVG_CRUISE_KMH = 850;
 // Purely an animation curve, not a claimed fact: once a real meeting date
 // exists, the plane's position eases in from this many days out.
@@ -32,7 +32,7 @@ export function JourneyMap() {
   const nicol = site.people[1];
 
   const W = 800, H = 400;
-  const start = project(nicol.coords.lat, nicol.coords.lng, W, H); // Prague
+  const start = project(nicol.coords.lat, nicol.coords.lng, W, H); // Brno
   const end = project(misha.coords.lat, misha.coords.lng, W, H); // Suwon
   const distance = haversineKm(nicol.coords, misha.coords);
   const flightHours = distance / AVG_CRUISE_KMH;
@@ -55,15 +55,15 @@ export function JourneyMap() {
     const daysLeft = Math.ceil((meetingDate.getTime() - Date.now()) / 86400000);
     if (daysLeft <= 0) {
       progress = 1;
-      caption = "Prague and Suwon are the same room.";
+      caption = "Brno and Suwon are the same room.";
     } else {
       progress = Math.min(1, Math.max(0, 1 - daysLeft / PLANNING_WINDOW_DAYS));
-      caption = `${daysLeft.toLocaleString()} day${daysLeft === 1 ? "" : "s"} until Prague and Suwon are the same room.`;
+      caption = `${daysLeft.toLocaleString()} day${daysLeft === 1 ? "" : "s"} until Brno and Suwon are the same room.`;
     }
   }
 
   // Position the plane along the quadratic bezier at t = progress (kept
-  // small/near start when progress is 0, so it visibly "waits" at Prague).
+  // small/near start when progress is 0, so it visibly "waits" at Brno).
   const t = Math.max(0.02, progress);
   const bx = (1 - t) * (1 - t) * start.x + 2 * (1 - t) * t * midX + t * t * end.x;
   const by = (1 - t) * (1 - t) * start.y + 2 * (1 - t) * t * arcY + t * t * end.y;

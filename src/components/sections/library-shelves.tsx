@@ -48,7 +48,6 @@ function Shelf({
           {items.map((item) => (
             <li key={item.title} className="border-b border-line pb-3 last:border-0 dark:border-line-dark">
               <p className="font-display text-base">{item.title}</p>
-              {item.note && <p className="mt-0.5 text-sm text-mist">{item.note}</p>}
             </li>
           ))}
         </ul>

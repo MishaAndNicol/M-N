@@ -3,7 +3,7 @@ import { Reveal } from "@/components/ui/reveal";
 
 const CHAPTERS = [
   { n: "01", href: "/about", title: "About us", text: "Who we are, apart from each other." },
-  { n: "02", href: "/journey", title: "The journey", text: "Suwon and Prague, mapped honestly." },
+  { n: "02", href: "/journey", title: "The journey", text: "Suwon and Brno, mapped honestly." },
   { n: "03", href: "/memories", title: "Memories", text: "Empty tiles, waiting for real ones." },
   { n: "04", href: "/conversations", title: "Conversations", text: "A few real lines worth keeping." },
   { n: "05", href: "/music", title: "Music", text: "Songs that already mean something." },

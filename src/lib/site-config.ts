@@ -46,7 +46,7 @@ export const site = {
     {
       name: "Nicol",
       country: "Slovakia",
-      city: "Prague",
+      city: "Brno",
       cityCountry: "Czech Republic",
       note: "Currently studying and interning in the Czech Republic",
       major: "Law",
@@ -58,7 +58,7 @@ export const site = {
       ],
       bio: "From Slovakia, currently studying law and completing a supervised internship in the Czech Republic - mandatory for her degree, and she's been clear she wants to stay in law rather than switch fields. She has a cat waiting for her back home in Slovakia, cooks only the bare minimum, and works through a couple of ongoing translated web-novel series between everything else. When she plays, it's solo - Genshin Impact, Honkai: Star Rail, Hades - multiplayer isn't really her thing. Careful with new people, protective of her independence, and always says what she means.",
       photo: "/images/profile-b.jpg",
-      coords: { lat: 50.0755, lng: 14.4378 },
+      coords: { lat: 49.1951, lng: 16.6068 },
     },
   ],
 
@@ -149,7 +149,7 @@ export const site = {
   // that actually have an uploaded file; add more the same way any time
   // (full entry shape: title, artist, note, audioUrl, spotifyUrl, youtubeUrl, art).
   playlist: [
-    { title: "Superscar", artist: "Adela", note: "", audioUrl: "music/9.m4a", spotifyUrl: "", youtubeUrl: "", art: "" },
+    { title: "Superscar", artist: "Adela", note: "", audioUrl: "music/3.m4a", spotifyUrl: "", youtubeUrl: "", art: "" },
     {
       title: "Upside Down Kiss",
       artist: "TXT (Tomorrow X Together)",
@@ -163,7 +163,7 @@ export const site = {
       title: "Ghost Girl",
       artist: "TXT (Tomorrow X Together)",
       note: "",
-      audioUrl: "music/5.mp3",
+      audioUrl: "music/6.mp3",
       spotifyUrl: "",
       youtubeUrl: "",
       art: "",
@@ -172,7 +172,7 @@ export const site = {
       title: "Anti-Romantic",
       artist: "TXT (Tomorrow X Together)",
       note: "",
-      audioUrl: "music/6.mp3",
+      audioUrl: "music/7.mp3",
       spotifyUrl: "",
       youtubeUrl: "",
       art: "",
@@ -181,7 +181,7 @@ export const site = {
       title: "Frost",
       artist: "TXT (Tomorrow X Together)",
       note: "",
-      audioUrl: "music/7.mp3",
+      audioUrl: "music/8.mp3",
       spotifyUrl: "",
       youtubeUrl: "",
       art: "",
@@ -190,12 +190,12 @@ export const site = {
       title: "LO$ER=LO♡ER",
       artist: "TXT (Tomorrow X Together)",
       note: "",
-      audioUrl: "music/8.mp3",
+      audioUrl: "music/9.mp3",
       spotifyUrl: "",
       youtubeUrl: "",
       art: "",
     },
-    { title: "Zitti e Buoni", artist: "Måneskin", note: "", audioUrl: "music/3.mp3", spotifyUrl: "", youtubeUrl: "", art: "" },
+    { title: "Zitti e Buoni", artist: "Måneskin", note: "", audioUrl: "music/5.mp3", spotifyUrl: "", youtubeUrl: "", art: "" },
     { title: "MAMMAMIA", artist: "Måneskin", note: "", audioUrl: "music/4.mp3", spotifyUrl: "", youtubeUrl: "", art: "" },
     {
       title: "I Wanna Be Your Slave",
