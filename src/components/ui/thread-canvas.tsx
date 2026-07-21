@@ -42,6 +42,9 @@ export function ThreadCanvas() {
     let raf: number;
     const isDark = document.documentElement.classList.contains("dark");
     const dotColor = isDark ? "255,255,255" : "10,11,13";
+    // Same warm rust (light) / warm ember (dark) accent as the rest of the
+    // site - kept in sync with --accent-rgb in globals.css.
+    const accentColor = isDark ? "232,147,90" : "168,69,44";
 
     const draw = () => {
       ctx.clearRect(0, 0, width, height);
@@ -61,7 +64,7 @@ export function ThreadCanvas() {
           if (d < max) {
             const isThread = (i === 0 && j === 1);
             ctx.strokeStyle = isThread
-              ? "rgba(76,111,255,0.35)"
+              ? `rgba(${accentColor},0.4)`
               : `rgba(${dotColor},${(1 - d / max) * 0.12})`;
             ctx.lineWidth = isThread ? 1.4 : 0.6;
             ctx.beginPath();
@@ -73,7 +76,7 @@ export function ThreadCanvas() {
       }
       for (const p of points) {
         ctx.beginPath();
-        ctx.fillStyle = p.anchor ? "rgba(76,111,255,0.9)" : `rgba(${dotColor},0.35)`;
+        ctx.fillStyle = p.anchor ? `rgba(${accentColor},0.9)` : `rgba(${dotColor},0.35)`;
         ctx.arc(p.x, p.y, p.anchor ? 3 : 1.4, 0, Math.PI * 2);
         ctx.fill();
       }
