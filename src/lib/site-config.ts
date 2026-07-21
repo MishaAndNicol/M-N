@@ -143,68 +143,68 @@ export const site = {
     { title: "First time meeting in person", achieved: false },
   ],
 
-  // Real songs only - see brief Section 11. `audioUrl` is the primary way
-  // to make a track actually play: paste a public Cloudflare R2 URL (or,
-  // if NEXT_PUBLIC_R2_PUBLIC_BASE_URL is set, just the object key) to your
-  // own audio file for that song, e.g. "homewrecked.mp3". Left blank on
-  // purpose until real files are uploaded - see CLOUDFLARE_R2_SETUP.md.
-  // spotifyUrl/youtubeUrl still work as a fallback embed if you'd rather
-  // link out than host the file yourself.
+  // Real songs only - see brief Section 11. `audioUrl` points at a public
+  // Cloudflare R2 object (full URL, or - since NEXT_PUBLIC_R2_PUBLIC_BASE_URL
+  // is configured - just the object key). Trimmed down to only the tracks
+  // that actually have an uploaded file; add more the same way any time
+  // (full entry shape: title, artist, note, audioUrl, spotifyUrl, youtubeUrl, art).
   playlist: [
+    { title: "Superscar", artist: "Adela", note: "", audioUrl: "music/9.m4a", spotifyUrl: "", youtubeUrl: "", art: "" },
     {
-      title: "Homewrecked",
-      artist: "Adela",
-      note: "One of Nicol's favorite artists - a real starting point, not a placeholder.",
-      audioUrl: "",
-      spotifyUrl: "",
-      youtubeUrl: "",
-      art: "",
-    },
-    { title: "Superscar", artist: "Adela", note: "", audioUrl: "", spotifyUrl: "", youtubeUrl: "", art: "" },
-    { title: "MachineGirl", artist: "Adela", note: "", audioUrl: "", spotifyUrl: "", youtubeUrl: "", art: "" },
-    {
-      title: "Crown",
+      title: "Upside Down Kiss",
       artist: "TXT (Tomorrow X Together)",
       note: "",
-      audioUrl: "",
+      audioUrl: "music/1.mp3",
       spotifyUrl: "",
       youtubeUrl: "",
       art: "",
     },
     {
-      title: "0X1=LOVESONG (I Know I Love You)",
+      title: "Ghost Girl",
       artist: "TXT (Tomorrow X Together)",
       note: "",
-      audioUrl: "",
+      audioUrl: "music/5.mp3",
       spotifyUrl: "",
       youtubeUrl: "",
       art: "",
     },
     {
-      title: "Deja Vu",
+      title: "Anti-Romantic",
       artist: "TXT (Tomorrow X Together)",
       note: "",
-      audioUrl: "",
+      audioUrl: "music/6.mp3",
       spotifyUrl: "",
       youtubeUrl: "",
       art: "",
     },
-    { title: "Spring Day", artist: "BTS", note: "", audioUrl: "", spotifyUrl: "", youtubeUrl: "", art: "" },
-    { title: "Dynamite", artist: "BTS", note: "", audioUrl: "", spotifyUrl: "", youtubeUrl: "", art: "" },
-    { title: "Life Goes On", artist: "BTS", note: "", audioUrl: "", spotifyUrl: "", youtubeUrl: "", art: "" },
-    { title: "Gnarly", artist: "Katseye", note: "", audioUrl: "", spotifyUrl: "", youtubeUrl: "", art: "" },
-    { title: "Touch", artist: "Katseye", note: "", audioUrl: "", spotifyUrl: "", youtubeUrl: "", art: "" },
-    { title: "Gabriela", artist: "Katseye", note: "", audioUrl: "", spotifyUrl: "", youtubeUrl: "", art: "" },
-    { title: "Zitti e Buoni", artist: "Måneskin", note: "", audioUrl: "", spotifyUrl: "", youtubeUrl: "", art: "" },
+    {
+      title: "Frost",
+      artist: "TXT (Tomorrow X Together)",
+      note: "",
+      audioUrl: "music/7.mp3",
+      spotifyUrl: "",
+      youtubeUrl: "",
+      art: "",
+    },
+    {
+      title: "LO$ER=LO♡ER",
+      artist: "TXT (Tomorrow X Together)",
+      note: "",
+      audioUrl: "music/8.mp3",
+      spotifyUrl: "",
+      youtubeUrl: "",
+      art: "",
+    },
+    { title: "Zitti e Buoni", artist: "Måneskin", note: "", audioUrl: "music/3.mp3", spotifyUrl: "", youtubeUrl: "", art: "" },
+    { title: "MAMMAMIA", artist: "Måneskin", note: "", audioUrl: "music/4.mp3", spotifyUrl: "", youtubeUrl: "", art: "" },
     {
       title: "I Wanna Be Your Slave",
       artist: "Måneskin",
       note: "",
-      audioUrl: "",
+      audioUrl: "music/2.mp3",
       spotifyUrl: "",
       youtubeUrl: "",
       art: "",
     },
-    { title: "Beggin'", artist: "Måneskin", note: "", audioUrl: "", spotifyUrl: "", youtubeUrl: "", art: "" },
   ],
 };
