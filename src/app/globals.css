@@ -25,7 +25,7 @@
     --accent-soft-rgb: 106 150 196;
     /* Deep cobalt hairline - the swirling ultramarine sky's structure,
        not a darker shade of the foam line. */
-    --line-dark-rgb: 42 58 112;
+    --line-dark-rgb: 34 38 54;
     /* Night face: Cormorant. Taller, cooler, more wind-blown than
        Playfair - every h1-h4 and .font-display element switches
        automatically. */
@@ -65,10 +65,10 @@
       /* coarser field, warm chrome-yellow rather than white - Van Gogh's
          stars carry lamplight, not cold starlight */
       url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='420' height='420'><filter id='s2'><feTurbulence type='fractalNoise' baseFrequency='0.35' numOctaves='2' seed='31' stitchTiles='stitch' result='n'/><feColorMatrix in='n' type='matrix' values='0 0 0 0 0.98  0 0 0 0 0.82  0 0 0 0 0.38  0 0 0 42 -40.6'/></filter><rect width='100%25' height='100%25' filter='url(%23s2)'/></svg>"),
-      radial-gradient(ellipse 65% 48% at 20% 10%, rgba(52, 74, 158, 0.30), transparent 62%),
-      radial-gradient(ellipse 60% 42% at 88% 26%, rgba(37, 92, 130, 0.22), transparent 62%),
-      radial-gradient(ellipse 40% 32% at 78% 14%, rgba(244, 203, 88, 0.16), transparent 70%),
-      radial-gradient(ellipse 90% 60% at 50% 100%, rgba(2, 4, 12, 0.85), transparent);
+      radial-gradient(ellipse 65% 48% at 20% 10%, rgba(52, 74, 158, 0.14), transparent 62%),
+      radial-gradient(ellipse 60% 42% at 88% 26%, rgba(37, 92, 130, 0.10), transparent 62%),
+      radial-gradient(ellipse 40% 32% at 78% 14%, rgba(244, 203, 88, 0.07), transparent 70%),
+      radial-gradient(ellipse 90% 60% at 50% 100%, rgba(0, 0, 0, 0.92), transparent);
     background-attachment: fixed;
   }
 
@@ -89,7 +89,7 @@
     animation: swell-drift 18s ease-in-out infinite;
   }
   .dark body::before {
-    background: conic-gradient(from 210deg at 28% 22%, rgba(42, 58, 112, 0.5), rgba(37, 92, 130, 0.25) 25%, transparent 45%, rgba(52, 74, 158, 0.35) 70%, rgba(42, 58, 112, 0.5) 100%);
+    background: conic-gradient(from 210deg at 28% 22%, rgba(42, 58, 112, 0.22), rgba(37, 92, 130, 0.12) 25%, transparent 45%, rgba(52, 74, 158, 0.16) 70%, rgba(42, 58, 112, 0.22) 100%);
     animation: swirl-drift 26s ease-in-out infinite;
   }
 
@@ -167,7 +167,7 @@
     border-color: rgba(199, 138, 54, 0.4);
   }
   .dark .card-surface {
-    @apply border-line-dark bg-[rgba(15,18,32,0.55)];
+    @apply border-line-dark bg-[rgba(10,11,16,0.6)];
     background-image: none;
     border-radius: 0.35rem;
     clip-path: polygon(

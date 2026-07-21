@@ -4,9 +4,18 @@ import Link from "next/link";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Moon, Sun, Menu, X } from "lucide-react";
+import { Moon, Sun, Menu, X, Flower2, Leaf, Snowflake } from "lucide-react";
 import { useTheme } from "next-themes";
+import { useSeasonControls } from "@/components/layout/season-provider";
 import { cn } from "@/lib/utils";
+import type { Season } from "@/lib/season";
+
+const SEASONS: { value: Season; label: string; icon: typeof Sun }[] = [
+  { value: "spring", label: "Spring", icon: Flower2 },
+  { value: "summer", label: "Summer", icon: Sun },
+  { value: "autumn", label: "Autumn", icon: Leaf },
+  { value: "winter", label: "Winter", icon: Snowflake },
+];
 
 const LINKS = [
   { href: "/about", label: "About" },
@@ -23,6 +32,7 @@ export function Navbar() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const { resolvedTheme, setTheme } = useTheme();
+  const { season, setSeason } = useSeasonControls();
 
   return (
     <header className="fixed inset-x-0 top-0 z-50">
@@ -52,6 +62,22 @@ export function Navbar() {
           </nav>
 
           <div className="flex items-center gap-1.5">
+            <div className="hidden items-center gap-0.5 rounded-full border border-line/60 p-0.5 dark:border-line-dark md:flex">
+              {SEASONS.map(({ value, label, icon: Icon }) => (
+                <button
+                  key={value}
+                  aria-label={`Switch to ${label}`}
+                  aria-pressed={season === value}
+                  onClick={() => setSeason(value)}
+                  className={cn(
+                    "grid h-7 w-7 place-items-center rounded-full text-mist transition-colors hover:text-ink dark:hover:text-paper",
+                    season === value && "bg-ink/[0.06] text-thread dark:bg-white/[0.08] dark:text-thread"
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                </button>
+              ))}
+            </div>
             <button
               aria-label="Toggle theme"
               onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
@@ -103,6 +129,24 @@ export function Navbar() {
                 </motion.div>
               ))}
             </nav>
+
+            <div className="container-page mt-8 flex items-center gap-2">
+              {SEASONS.map(({ value, label, icon: Icon }) => (
+                <button
+                  key={value}
+                  aria-label={`Switch to ${label}`}
+                  aria-pressed={season === value}
+                  onClick={() => setSeason(value)}
+                  className={cn(
+                    "flex items-center gap-2 rounded-full border border-line px-3.5 py-2 text-sm text-mist transition-colors dark:border-line-dark",
+                    season === value && "border-thread/50 text-thread"
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </button>
+              ))}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

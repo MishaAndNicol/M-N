@@ -12,10 +12,6 @@ export default function JourneyPage() {
           <h1 className="max-w-xl text-balance font-display text-4xl font-light md:text-5xl">
             The distance, mapped honestly
           </h1>
-          <p className="mt-5 max-w-lg text-mist">
-            Not close. Not impossible either - just far enough that no visit happens by accident. No date exists
-            yet. This page will know the moment one does.
-          </p>
         </Reveal>
 
         <div className="mt-16">

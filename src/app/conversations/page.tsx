@@ -12,9 +12,6 @@ export default function ConversationsPage() {
           <h1 className="text-balance text-center font-display text-4xl font-light md:text-5xl">
             The words that stuck
           </h1>
-          <p className="mx-auto mt-5 max-w-md text-balance text-center text-sm text-mist">
-            A few real lines, taken from the actual conversation - nothing here is written for the site.
-          </p>
         </Reveal>
         <div className="mt-16">
           <ConversationBubbles />

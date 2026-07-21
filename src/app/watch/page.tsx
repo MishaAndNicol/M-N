@@ -12,10 +12,6 @@ export default function WatchPage() {
           <h1 className="max-w-xl text-balance font-display text-4xl font-light md:text-5xl">
             Same film, two screens
           </h1>
-          <p className="mt-5 max-w-lg text-mist">
-            Drop in a video link, and play, pause, and seeking stay in sync automatically - not the same
-            room, but close enough.
-          </p>
         </Reveal>
 
         <div className="mt-16">

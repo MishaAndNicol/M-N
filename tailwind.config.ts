@@ -26,8 +26,8 @@ const config: Config = {
         // from `ink` (which stays the sea-ink light-mode text colour).
         // Body background switches to this in dark rather than reusing
         // `ink`.
-        void: "#0A1330",
-        "void-deep": "#050815",
+        void: "#08090D",
+        "void-deep": "#020203",
         // Warm dawn-gold in light mode (the light breaking through the
         // storm clouds in the Ninth Wave), chrome-yellow starlight in
         // dark mode (Van Gogh's stars and moon) - same utility classes
