@@ -73,7 +73,7 @@ export function JourneyMap() {
   const angle = (Math.atan2(by - byPrev, bx - bxPrev) * 180) / Math.PI;
 
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-line bg-white/30 p-6 dark:border-line-dark dark:bg-white/[0.02] md:p-10">
+    <div className="card-surface relative overflow-hidden p-6 md:p-10">
       <p className="eyebrow mb-6">Thread of fate</p>
 
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full">

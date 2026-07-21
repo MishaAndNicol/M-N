@@ -23,7 +23,7 @@ export function Chapters() {
             <Reveal key={c.href} delay={i * 0.05}>
               <Link
                 href={c.href}
-                className="group flex h-full flex-col justify-between gap-8 bg-paper p-8 transition-colors hover:bg-ink/[0.02] dark:bg-ink dark:hover:bg-white/[0.03] md:p-10"
+                className="group flex h-full flex-col justify-between gap-8 bg-paper p-8 transition-colors hover:bg-ink/[0.02] dark:bg-void dark:hover:bg-white/[0.03] md:p-10"
               >
                 <span className="font-mono text-xs text-mist">{c.n}</span>
                 <div>

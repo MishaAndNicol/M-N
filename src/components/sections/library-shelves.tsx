@@ -32,7 +32,7 @@ function Shelf({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-60px" }}
       transition={{ duration: 0.6, delay }}
-      className="rounded-[var(--season-radius)] border border-line bg-white/40 p-7 dark:border-line-dark dark:bg-white/[0.02]"
+      className="card-surface p-7"
     >
       <div className="flex items-center gap-2.5 text-thread">
         <Icon className="h-4 w-4" />

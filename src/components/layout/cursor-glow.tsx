@@ -34,7 +34,7 @@ export function CursorGlow() {
     <div
       ref={ref}
       aria-hidden
-      className="pointer-events-none fixed left-0 top-0 z-0 hidden h-[400px] w-[400px] rounded-full bg-thread/[0.08] blur-[100px] md:block"
+      className="cursor-glow pointer-events-none fixed left-0 top-0 z-0 hidden h-[400px] w-[400px] rounded-full bg-thread/[0.08] blur-[100px] dark:bg-thread/[0.16] dark:blur-[70px] md:block"
     />
   );
 }

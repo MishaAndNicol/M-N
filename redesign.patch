@@ -1,0 +1,520 @@
+diff --git a/src/app/globals.css "b/..\\M-N-main\\src/app/globals.css"
+index bf25b75..6fbb45f 100644
+--- a/src/app/globals.css
++++ "b/..\\M-N-main\\src/app/globals.css"
+@@ -11,13 +11,24 @@
+        unchanged across the whole app; only the values here change. */
+     --accent-rgb: 168 69 44;
+     --accent-soft-rgb: 201 136 101;
++    /* Warm paper hairline - divider/border color in light mode. */
++    --line-dark-rgb: 229 221 204;
++    /* Day face: Fraunces. See fontFamily.display in tailwind.config.ts. */
++    --font-display: var(--font-fraunces);
+   }
+   .dark {
+     color-scheme: dark;
+-    /* Warm ember glow - the dark-mode accent, closer to firelight than
+-       to a UI blue. */
+-    --accent-rgb: 232 147 90;
+-    --accent-soft-rgb: 242 183 140;
++    /* Starlight gold - the dark-mode accent. Deliberately not the warm
++       rust of light mode pushed darker; it's a different hue family
++       entirely, closer to a star catalogue's ink than a fountain pen. */
++    --accent-rgb: 227 195 128;
++    --accent-soft-rgb: 168 189 214;
++    /* Cool deep-indigo hairline - night-sky structure, not a darker shade
++       of the paper line. */
++    --line-dark-rgb: 46 52 84;
++    /* Night face: Cormorant. Taller, cooler, more engraved than Fraunces -
++       every h1-h4 and .font-display element switches automatically. */
++    --font-display: var(--font-cormorant);
+   }
+ 
+   html {
+@@ -25,14 +36,15 @@
+   }
+ 
+   body {
+-    @apply bg-paper text-ink dark:bg-ink dark:text-paper font-body antialiased;
++    @apply bg-paper text-ink dark:bg-void dark:text-paper font-body antialiased;
+     font-feature-settings: "ss01" 1, "cv01" 1;
+   }
+ 
+   /* Warm paper grain in light mode - a fine noise texture plus a very
+      faint warm vignette, so the page reads as paper rather than a flat
+-     UI panel. Dark mode instead gets a cinematic radial vignette - a
+-     soft pool of light behind the content, deep shadow at the edges. */
++     UI panel. Dark mode instead gets an actual night sky: layered star
++     fields at two densities plus soft nebula glows, no grain at all -
++     the two themes shouldn't even share a texture family. */
+   body {
+     background-image:
+       url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 0.55  0 0 0 0 0.47  0 0 0 0 0.35  0 0 0 0.05 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
+@@ -41,9 +53,13 @@
+   }
+   .dark body {
+     background-image:
+-      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 1  0 0 0 0 0.85  0 0 0 0 0.7  0 0 0 0.035 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
+-      radial-gradient(ellipse 70% 60% at 50% 0%, rgba(232, 147, 90, 0.09), transparent 60%),
+-      radial-gradient(ellipse 100% 60% at 50% 100%, rgba(0, 0, 0, 0.55), transparent);
++      /* fine star field */
++      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='260'><filter id='s'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='7' stitchTiles='stitch' result='n'/><feColorMatrix in='n' type='matrix' values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 22 -20.4'/></filter><rect width='100%25' height='100%25' filter='url(%23s)'/></svg>"),
++      /* coarser bright star field */
++      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='420' height='420'><filter id='s2'><feTurbulence type='fractalNoise' baseFrequency='0.35' numOctaves='2' seed='31' stitchTiles='stitch' result='n'/><feColorMatrix in='n' type='matrix' values='0 0 0 0 0.94  0 0 0 0 0.85  0 0 0 0 0.65  0 0 0 40 -39.1'/></filter><rect width='100%25' height='100%25' filter='url(%23s2)'/></svg>"),
++      radial-gradient(ellipse 60% 45% at 18% 8%, rgba(108, 99, 209, 0.16), transparent 60%),
++      radial-gradient(ellipse 55% 40% at 85% 30%, rgba(70, 130, 148, 0.14), transparent 60%),
++      radial-gradient(ellipse 90% 60% at 50% 100%, rgba(2, 3, 8, 0.8), transparent);
+     background-attachment: fixed;
+   }
+ 
+@@ -64,7 +80,10 @@
+ 
+ @layer utilities {
+   .glass {
+-    @apply bg-white/60 dark:bg-white/[0.04] backdrop-blur-xl border border-white/40 dark:border-white/[0.08];
++    @apply bg-white/60 dark:bg-white/[0.03] backdrop-blur-xl border border-white/40 dark:border-thread/[0.15];
++  }
++  .dark .glass {
++    box-shadow: 0 0 0 1px rgba(227, 195, 128, 0.04), 0 8px 30px -12px rgba(0, 0, 0, 0.6);
+   }
+ 
+   .container-page {
+@@ -84,6 +103,41 @@
+     @apply font-hand text-xl leading-none text-thread;
+     transform: rotate(-2deg);
+   }
++  /* Night mode drops the handwriting entirely for a small tracked-out
++     catalogue label - the register of a caption under a star chart, not
++     a note in a margin. Same markup, same content, different voice. */
++  .dark .eyebrow {
++    @apply font-mono text-[11px] font-medium uppercase tracking-[0.32em];
++    transform: none;
++  }
++  .dark .eyebrow::before {
++    content: "\2726";
++    margin-right: 0.1em;
++    font-size: 0.85em;
++  }
++
++  /* Shared card treatment used across profile, library, journey, watch,
++     memories, etc. Light mode: soft paper-glass panel, season-driven
++     radius. Dark mode: a faceted star-chart plaque - clipped corners,
++     cool hairline border, faint inner glow - independent of season. */
++  .card-surface {
++    @apply rounded-[var(--season-radius)] border border-line bg-white/40;
++  }
++  .dark .card-surface {
++    @apply border-line-dark bg-[rgba(15,18,32,0.55)];
++    border-radius: 0.35rem;
++    clip-path: polygon(
++      0 14px, 14px 0,
++      100% 0, 100% calc(100% - 14px),
++      calc(100% - 14px) 100%, 0 100%
++    );
++    box-shadow: inset 0 0 0 1px rgba(227, 195, 128, 0.06), 0 20px 45px -30px rgba(0, 0, 0, 0.9);
++    transition: box-shadow 0.3s ease, border-color 0.3s ease;
++  }
++  .dark .card-surface:hover {
++    border-color: rgba(227, 195, 128, 0.35);
++    box-shadow: inset 0 0 0 1px rgba(227, 195, 128, 0.12), 0 20px 45px -30px rgba(0, 0, 0, 0.9);
++  }
+ }
+ 
+ @media (prefers-reduced-motion: reduce) {
+@@ -130,6 +184,15 @@ html[data-season="winter"] {
+   --season-accent: #6f9bd1;
+ }
+ 
++/* Night overrides every season's radius to something sharper and more
++   drafted - star charts don't get softer in summer. Higher specificity
++   (type + class + attribute) than the plain html[data-season=...] rules
++   above, so it wins regardless of which season is active. */
++html.dark[data-season] {
++  --season-radius: 0.4rem;
++  --season-radius-sm: 0.3rem;
++}
++
+ .season-particle {
+   position: absolute;
+   top: -8%;
+@@ -175,3 +238,12 @@ html[data-season="winter"] {
+ .dark .season-particle--summer {
+   opacity: 0.4;
+ }
++
++/* Gentle star twinkle, used by the cursor glow in dark mode. */
++@keyframes twinkle {
++  0%, 100% { opacity: 0.55; transform: scale(1); }
++  50% { opacity: 1; transform: scale(1.08); }
++}
++.dark .cursor-glow {
++  animation: twinkle 3.2s ease-in-out infinite;
++}
+diff --git a/src/app/layout.tsx "b/..\\M-N-main\\src/app/layout.tsx"
+index 873c835..09eba0c 100644
+--- a/src/app/layout.tsx
++++ "b/..\\M-N-main\\src/app/layout.tsx"
+@@ -1,5 +1,5 @@
+ import type { Metadata } from "next";
+-import { Fraunces, Work_Sans, IBM_Plex_Mono, Caveat } from "next/font/google";
++import { Fraunces, Work_Sans, IBM_Plex_Mono, Caveat, Cormorant } from "next/font/google";
+ import "./globals.css";
+ import { ThemeProvider } from "@/components/layout/theme-provider";
+ import { Navbar } from "@/components/layout/navbar";
+@@ -31,13 +31,24 @@ const mono = IBM_Plex_Mono({
+ 
+ // Handwritten accent - used sparingly (eyebrows, small annotations) for
+ // the "note pinned to the page" feel, never for body copy or anything
+-// that needs to be easily scannable.
++// that needs to be easily scannable. Light mode only - see globals.css.
+ const caveat = Caveat({
+   subsets: ["latin"],
+   variable: "--font-caveat",
+   weight: ["500", "600", "700"],
+ });
+ 
++// Night-mode display face - taller, cooler, more engraved than Fraunces.
++// Swapped in purely via the --font-display CSS variable (globals.css),
++// so every heading site-wide changes register between themes without
++// touching a single component.
++const cormorant = Cormorant({
++  subsets: ["latin"],
++  variable: "--font-cormorant",
++  weight: ["400", "500", "600", "700"],
++  style: ["normal", "italic"],
++});
++
+ export const metadata: Metadata = {
+   title: "Every story starts somewhere.",
+   description: "The story of two people, two countries, and everything in between.",
+@@ -52,7 +63,7 @@ export const metadata: Metadata = {
+ export default function RootLayout({ children }: { children: React.ReactNode }) {
+   return (
+     <html lang="en" suppressHydrationWarning>
+-      <body className={`${fraunces.variable} ${workSans.variable} ${mono.variable} ${caveat.variable}`}>
++      <body className={`${fraunces.variable} ${workSans.variable} ${mono.variable} ${caveat.variable} ${cormorant.variable}`}>
+         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+           <SeasonProvider>
+             <SeasonAtmosphere />
+diff --git a/src/components/layout/cursor-glow.tsx "b/..\\M-N-main\\src/components/layout/cursor-glow.tsx"
+index 9b37af1..41b3305 100644
+--- a/src/components/layout/cursor-glow.tsx
++++ "b/..\\M-N-main\\src/components/layout/cursor-glow.tsx"
+@@ -34,7 +34,7 @@ export function CursorGlow() {
+     <div
+       ref={ref}
+       aria-hidden
+-      className="pointer-events-none fixed left-0 top-0 z-0 hidden h-[400px] w-[400px] rounded-full bg-thread/[0.08] blur-[100px] md:block"
++      className="cursor-glow pointer-events-none fixed left-0 top-0 z-0 hidden h-[400px] w-[400px] rounded-full bg-thread/[0.08] blur-[100px] dark:bg-thread/[0.16] dark:blur-[70px] md:block"
+     />
+   );
+ }
+diff --git a/src/components/layout/navbar.tsx "b/..\\M-N-main\\src/components/layout/navbar.tsx"
+index 5fc121c..20fa502 100644
+--- a/src/components/layout/navbar.tsx
++++ "b/..\\M-N-main\\src/components/layout/navbar.tsx"
+@@ -38,11 +38,15 @@ export function Navbar() {
+                 key={link.href}
+                 href={link.href}
+                 className={cn(
+-                  "rounded-full px-3 py-1.5 text-sm text-mist transition-colors hover:text-ink dark:hover:text-paper",
+-                  pathname === link.href && "bg-ink/[0.04] text-ink dark:bg-white/[0.06] dark:text-paper"
++                  "relative rounded-full px-3 py-1.5 text-sm text-mist transition-colors hover:text-ink",
++                  "dark:rounded-none dark:px-2.5 dark:text-[11px] dark:font-medium dark:uppercase dark:tracking-[0.18em] dark:hover:text-paper",
++                  pathname === link.href && "bg-ink/[0.04] text-ink dark:bg-transparent dark:text-thread"
+                 )}
+               >
+                 {link.label}
++                {pathname === link.href && (
++                  <span className="absolute inset-x-2 -bottom-0.5 hidden h-px bg-thread dark:block" />
++                )}
+               </Link>
+             ))}
+           </nav>
+@@ -73,7 +77,7 @@ export function Navbar() {
+             initial={{ opacity: 0 }}
+             animate={{ opacity: 1 }}
+             exit={{ opacity: 0 }}
+-            className="fixed inset-0 z-[60] bg-paper dark:bg-ink lg:hidden"
++            className="fixed inset-0 z-[60] bg-paper dark:bg-void lg:hidden"
+           >
+             <div className="container-page flex items-center justify-between py-6">
+               <span className="font-display text-[15px] italic">two story</span>
+diff --git a/src/components/sections/chapters.tsx "b/..\\M-N-main\\src/components/sections/chapters.tsx"
+index ca0c4a6..a161d5d 100644
+--- a/src/components/sections/chapters.tsx
++++ "b/..\\M-N-main\\src/components/sections/chapters.tsx"
+@@ -23,7 +23,7 @@ export function Chapters() {
+             <Reveal key={c.href} delay={i * 0.05}>
+               <Link
+                 href={c.href}
+-                className="group flex h-full flex-col justify-between gap-8 bg-paper p-8 transition-colors hover:bg-ink/[0.02] dark:bg-ink dark:hover:bg-white/[0.03] md:p-10"
++                className="group flex h-full flex-col justify-between gap-8 bg-paper p-8 transition-colors hover:bg-ink/[0.02] dark:bg-void dark:hover:bg-white/[0.03] md:p-10"
+               >
+                 <span className="font-mono text-xs text-mist">{c.n}</span>
+                 <div>
+diff --git a/src/components/sections/conversation-bubbles.tsx "b/..\\M-N-main\\src/components/sections/conversation-bubbles.tsx"
+index 675ebb5..074fa5b 100644
+--- a/src/components/sections/conversation-bubbles.tsx
++++ "b/..\\M-N-main\\src/components/sections/conversation-bubbles.tsx"
+@@ -19,7 +19,7 @@ export function ConversationBubbles() {
+             whileInView={{ opacity: 1, y: 0 }}
+             viewport={{ once: true, margin: "-60px" }}
+             transition={{ delay: (i % 4) * 0.06, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+-            className="flex flex-col justify-between rounded-[var(--season-radius-sm)] border border-line bg-white/40 p-7 dark:border-line-dark dark:bg-white/[0.02]"
++            className="card-surface flex flex-col justify-between p-7"
+           >
+             <blockquote className="font-display text-lg font-light leading-relaxed">
+               &ldquo;{q.text}&rdquo;
+diff --git a/src/components/sections/hero.tsx "b/..\\M-N-main\\src/components/sections/hero.tsx"
+index 9d8ea64..44c6392 100644
+--- a/src/components/sections/hero.tsx
++++ "b/..\\M-N-main\\src/components/sections/hero.tsx"
+@@ -44,7 +44,7 @@ export function Hero() {
+         >
+           <Link
+             href="/about"
+-            className="group inline-flex items-center gap-3 rounded-full bg-ink px-6 py-3 text-sm text-paper transition-transform hover:scale-[1.03] dark:bg-paper dark:text-ink"
++            className="group inline-flex items-center gap-3 rounded-full bg-ink px-6 py-3 text-sm text-paper transition-transform hover:scale-[1.03] dark:rounded-none dark:border dark:border-thread/50 dark:bg-transparent dark:px-7 dark:py-3 dark:font-mono dark:text-[11px] dark:uppercase dark:tracking-[0.28em] dark:text-thread dark:shadow-[0_0_20px_-6px_rgba(227,195,128,0.5)] dark:hover:bg-thread/10 dark:hover:shadow-[0_0_28px_-4px_rgba(227,195,128,0.7)]"
+           >
+             Begin the story
+             <span className="transition-transform group-hover:translate-x-1">→</span>
+diff --git a/src/components/sections/journey-map.tsx "b/..\\M-N-main\\src/components/sections/journey-map.tsx"
+index 473ae38..f6c05a0 100644
+--- a/src/components/sections/journey-map.tsx
++++ "b/..\\M-N-main\\src/components/sections/journey-map.tsx"
+@@ -73,7 +73,7 @@ export function JourneyMap() {
+   const angle = (Math.atan2(by - byPrev, bx - bxPrev) * 180) / Math.PI;
+ 
+   return (
+-    <div className="relative overflow-hidden rounded-3xl border border-line bg-white/30 p-6 dark:border-line-dark dark:bg-white/[0.02] md:p-10">
++    <div className="card-surface relative overflow-hidden p-6 md:p-10">
+       <p className="eyebrow mb-6">Thread of fate</p>
+ 
+       <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
+diff --git a/src/components/sections/library-shelves.tsx "b/..\\M-N-main\\src/components/sections/library-shelves.tsx"
+index d7c5a1d..8d0366b 100644
+--- a/src/components/sections/library-shelves.tsx
++++ "b/..\\M-N-main\\src/components/sections/library-shelves.tsx"
+@@ -32,7 +32,7 @@ function Shelf({
+       whileInView={{ opacity: 1, y: 0 }}
+       viewport={{ once: true, margin: "-60px" }}
+       transition={{ duration: 0.6, delay }}
+-      className="rounded-[var(--season-radius)] border border-line bg-white/40 p-7 dark:border-line-dark dark:bg-white/[0.02]"
++      className="card-surface p-7"
+     >
+       <div className="flex items-center gap-2.5 text-thread">
+         <Icon className="h-4 w-4" />
+diff --git a/src/components/sections/memories-grid.tsx "b/..\\M-N-main\\src/components/sections/memories-grid.tsx"
+index 42c9f90..abd6baf 100644
+--- a/src/components/sections/memories-grid.tsx
++++ "b/..\\M-N-main\\src/components/sections/memories-grid.tsx"
+@@ -34,7 +34,7 @@ export function MemoriesGrid() {
+             onClick={() => setFilter(c)}
+             className={`rounded-full px-4 py-1.5 font-mono text-xs uppercase tracking-wider transition-colors ${
+               filter === c
+-                ? "bg-ink text-paper dark:bg-paper dark:text-ink"
++                ? "bg-ink text-paper dark:border dark:border-thread/60 dark:bg-thread/10 dark:text-thread dark:shadow-[0_0_14px_-6px_rgba(227,195,128,0.6)]"
+                 : "border border-line text-mist hover:text-ink dark:border-line-dark dark:hover:text-paper"
+             }`}
+           >
+@@ -53,7 +53,7 @@ export function MemoriesGrid() {
+             whileInView={{ opacity: 1, y: 0 }}
+             viewport={{ once: true, margin: "-40px" }}
+             transition={{ delay: (i % 6) * 0.05 }}
+-            className="group relative flex aspect-square flex-col items-center justify-center gap-3 overflow-hidden rounded-xl border border-dashed border-line bg-white/30 p-4 text-center transition-colors hover:border-thread/40 dark:border-line-dark dark:bg-white/[0.02]"
++            className="card-surface group relative flex aspect-square flex-col items-center justify-center gap-3 border-dashed p-4 text-center transition-colors hover:border-thread/40"
+           >
+             <CameraOff className="h-5 w-5 text-mist/60 transition-colors group-hover:text-thread" />
+             <p className="text-xs text-mist">{m.caption}</p>
+diff --git a/src/components/sections/not-yet-grid.tsx "b/..\\M-N-main\\src/components/sections/not-yet-grid.tsx"
+index 80d3029..09200d0 100644
+--- a/src/components/sections/not-yet-grid.tsx
++++ "b/..\\M-N-main\\src/components/sections/not-yet-grid.tsx"
+@@ -19,7 +19,7 @@ export function NotYetGrid() {
+           whileInView={{ opacity: 1, y: 0 }}
+           viewport={{ once: true, margin: "-60px" }}
+           transition={{ duration: 0.6, delay: (i % 3) * 0.08 }}
+-          className="group relative overflow-hidden rounded-[var(--season-radius-sm)] border border-dashed border-line bg-white/40 p-7 transition-colors hover:border-thread/40 dark:border-line-dark dark:bg-white/[0.02]"
++          className="card-surface group relative overflow-hidden border-dashed p-7 transition-colors hover:border-thread/40"
+         >
+           <div
+             className={`mb-6 flex h-10 w-10 items-center justify-center rounded-full ${
+diff --git a/src/components/sections/profile-card.tsx "b/..\\M-N-main\\src/components/sections/profile-card.tsx"
+index 485c821..fa63b57 100644
+--- a/src/components/sections/profile-card.tsx
++++ "b/..\\M-N-main\\src/components/sections/profile-card.tsx"
+@@ -25,7 +25,7 @@ export function ProfileCard({ person, delay = 0 }: { person: Person; delay?: num
+       whileInView={{ opacity: 1, y: 0 }}
+       viewport={{ once: true, margin: "-80px" }}
+       transition={{ duration: 0.7, delay, ease: [0.16, 1, 0.3, 1] }}
+-      className="group overflow-hidden rounded-[var(--season-radius)] border border-line bg-white/40 dark:border-line-dark dark:bg-white/[0.02]"
++      className="card-surface group overflow-hidden"
+     >
+       <div className="relative aspect-[4/5] overflow-hidden bg-line dark:bg-line-dark">
+         <Image
+diff --git a/src/components/sections/watch-room.tsx "b/..\\M-N-main\\src/components/sections/watch-room.tsx"
+index f18ecc4..99c5f5e 100644
+--- a/src/components/sections/watch-room.tsx
++++ "b/..\\M-N-main\\src/components/sections/watch-room.tsx"
+@@ -308,7 +308,7 @@ export function WatchRoom() {
+ 
+       {/* who am I */}
+       {!whoAmI && (
+-        <div className="rounded-[var(--season-radius-sm)] border border-line p-6 dark:border-line-dark">
++        <div className="card-surface p-6">
+           <p className="eyebrow mb-4">Before we start</p>
+           <p className="mb-4 text-sm text-mist">Which one of you is this?</p>
+           <div className="flex flex-wrap gap-3">
+@@ -331,7 +331,7 @@ export function WatchRoom() {
+       {whoAmI && (
+         <>
+           {/* set / change film */}
+-          <div className="rounded-[var(--season-radius-sm)] border border-line p-6 dark:border-line-dark">
++          <div className="card-surface p-6">
+             <p className="eyebrow mb-4 flex items-center gap-2">
+               <Film className="h-3.5 w-3.5" /> {room.videoUrl ? "Change the film" : "Pick a film"}
+             </p>
+@@ -367,7 +367,7 @@ export function WatchRoom() {
+           </div>
+ 
+           {/* bulk-add many episodes at once */}
+-          <div className="rounded-[var(--season-radius-sm)] border border-line p-6 dark:border-line-dark">
++          <div className="card-surface p-6">
+             <p className="eyebrow mb-4 flex items-center gap-2">
+               <ListPlus className="h-3.5 w-3.5" /> Add a whole season at once
+             </p>
+@@ -410,7 +410,7 @@ export function WatchRoom() {
+ 
+           {/* the playlist itself */}
+           {room.playlist.length > 0 && (
+-            <div className="rounded-[var(--season-radius-sm)] border border-line p-6 dark:border-line-dark">
++            <div className="card-surface p-6">
+               <p className="eyebrow mb-4">Playlist ({room.playlist.length})</p>
+               <ul className="space-y-2">
+                 {room.playlist.map((ep, i) => {
+diff --git a/src/components/ui/thread-canvas.tsx "b/..\\M-N-main\\src/components/ui/thread-canvas.tsx"
+index 0020b77..db09bfa 100644
+--- a/src/components/ui/thread-canvas.tsx
++++ "b/..\\M-N-main\\src/components/ui/thread-canvas.tsx"
+@@ -40,13 +40,17 @@ export function ThreadCanvas() {
+     window.addEventListener("resize", onResize);
+ 
+     let raf: number;
++    let frame = 0;
+     const isDark = document.documentElement.classList.contains("dark");
+     const dotColor = isDark ? "255,255,255" : "10,11,13";
+-    // Same warm rust (light) / warm ember (dark) accent as the rest of the
+-    // site - kept in sync with --accent-rgb in globals.css.
+-    const accentColor = isDark ? "232,147,90" : "168,69,44";
++    // Warm rust ink (light) / starlight gold (dark) - kept in sync with
++    // --accent-rgb in globals.css.
++    const accentColor = isDark ? "227,195,128" : "168,69,44";
++    // Per-point twinkle phase, dark mode only.
++    const twinkle = points.map(() => Math.random() * Math.PI * 2);
+ 
+     const draw = () => {
++      frame++;
+       ctx.clearRect(0, 0, width, height);
+       for (const p of points) {
+         if (!prefersReduced && !p.anchor) {
+@@ -56,30 +60,78 @@ export function ThreadCanvas() {
+           if (p.y < 0 || p.y > height) p.vy *= -1;
+         }
+       }
+-      for (let i = 0; i < points.length; i++) {
+-        for (let j = i + 1; j < points.length; j++) {
+-          const a = points[i], b = points[j];
+-          const d = Math.hypot(a.x - b.x, a.y - b.y);
+-          const max = 160 * devicePixelRatio;
+-          if (d < max) {
+-            const isThread = (i === 0 && j === 1);
+-            ctx.strokeStyle = isThread
+-              ? `rgba(${accentColor},0.4)`
+-              : `rgba(${dotColor},${(1 - d / max) * 0.12})`;
+-            ctx.lineWidth = isThread ? 1.4 : 0.6;
+-            ctx.beginPath();
+-            ctx.moveTo(a.x, a.y);
+-            ctx.lineTo(b.x, b.y);
+-            ctx.stroke();
++
++      if (isDark) {
++        // Constellation: thin, near-straight glowing lines between
++        // whatever is close, one steady gold thread between the two
++        // "home" stars - deliberately more geometric and less organic
++        // than the daytime ink-thread version below.
++        for (let i = 0; i < points.length; i++) {
++          for (let j = i + 1; j < points.length; j++) {
++            const a = points[i], b = points[j];
++            const d = Math.hypot(a.x - b.x, a.y - b.y);
++            const max = 150 * devicePixelRatio;
++            if (d < max) {
++              const isThread = i === 0 && j === 1;
++              ctx.strokeStyle = isThread
++                ? `rgba(${accentColor},0.55)`
++                : `rgba(255,255,255,${(1 - d / max) * 0.07})`;
++              ctx.lineWidth = isThread ? 1 : 0.4;
++              if (isThread) {
++                ctx.shadowColor = `rgba(${accentColor},0.8)`;
++                ctx.shadowBlur = 6;
++              } else {
++                ctx.shadowBlur = 0;
++              }
++              ctx.beginPath();
++              ctx.moveTo(a.x, a.y);
++              ctx.lineTo(b.x, b.y);
++              ctx.stroke();
++            }
+           }
+         }
++        ctx.shadowBlur = 0;
++        points.forEach((p, i) => {
++          const tw = 0.5 + 0.5 * Math.sin(frame * 0.02 + twinkle[i]);
++          const alpha = p.anchor ? 0.95 : 0.25 + tw * 0.45;
++          ctx.beginPath();
++          ctx.fillStyle = p.anchor ? `rgba(${accentColor},${alpha})` : `rgba(255,255,255,${alpha})`;
++          if (p.anchor) {
++            ctx.shadowColor = `rgba(${accentColor},0.9)`;
++            ctx.shadowBlur = 8;
++          }
++          ctx.arc(p.x, p.y, p.anchor ? 2.6 : 1 + tw * 0.6, 0, Math.PI * 2);
++          ctx.fill();
++          ctx.shadowBlur = 0;
++        });
++      } else {
++        // Daytime: organic hand-drawn ink threads, unchanged from before.
++        for (let i = 0; i < points.length; i++) {
++          for (let j = i + 1; j < points.length; j++) {
++            const a = points[i], b = points[j];
++            const d = Math.hypot(a.x - b.x, a.y - b.y);
++            const max = 160 * devicePixelRatio;
++            if (d < max) {
++              const isThread = i === 0 && j === 1;
++              ctx.strokeStyle = isThread
++                ? `rgba(${accentColor},0.4)`
++                : `rgba(${dotColor},${(1 - d / max) * 0.12})`;
++              ctx.lineWidth = isThread ? 1.4 : 0.6;
++              ctx.beginPath();
++              ctx.moveTo(a.x, a.y);
++              ctx.lineTo(b.x, b.y);
++              ctx.stroke();
++            }
++          }
++        }
++        for (const p of points) {
++          ctx.beginPath();
++          ctx.fillStyle = p.anchor ? `rgba(${accentColor},0.9)` : `rgba(${dotColor},0.35)`;
++          ctx.arc(p.x, p.y, p.anchor ? 3 : 1.4, 0, Math.PI * 2);
++          ctx.fill();
++        }
+       }
+-      for (const p of points) {
+-        ctx.beginPath();
+-        ctx.fillStyle = p.anchor ? `rgba(${accentColor},0.9)` : `rgba(${dotColor},0.35)`;
+-        ctx.arc(p.x, p.y, p.anchor ? 3 : 1.4, 0, Math.PI * 2);
+-        ctx.fill();
+-      }
++
+       if (!prefersReduced) raf = requestAnimationFrame(draw);
+     };
+     draw();

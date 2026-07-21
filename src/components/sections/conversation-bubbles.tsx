@@ -19,7 +19,7 @@ export function ConversationBubbles() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-60px" }}
             transition={{ delay: (i % 4) * 0.06, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-            className="flex flex-col justify-between rounded-[var(--season-radius-sm)] border border-line bg-white/40 p-7 dark:border-line-dark dark:bg-white/[0.02]"
+            className="card-surface flex flex-col justify-between p-7"
           >
             <blockquote className="font-display text-lg font-light leading-relaxed">
               &ldquo;{q.text}&rdquo;

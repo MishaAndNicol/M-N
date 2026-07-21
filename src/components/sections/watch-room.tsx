@@ -308,7 +308,7 @@ export function WatchRoom() {
 
       {/* who am I */}
       {!whoAmI && (
-        <div className="rounded-[var(--season-radius-sm)] border border-line p-6 dark:border-line-dark">
+        <div className="card-surface p-6">
           <p className="eyebrow mb-4">Before we start</p>
           <p className="mb-4 text-sm text-mist">Which one of you is this?</p>
           <div className="flex flex-wrap gap-3">
@@ -331,7 +331,7 @@ export function WatchRoom() {
       {whoAmI && (
         <>
           {/* set / change film */}
-          <div className="rounded-[var(--season-radius-sm)] border border-line p-6 dark:border-line-dark">
+          <div className="card-surface p-6">
             <p className="eyebrow mb-4 flex items-center gap-2">
               <Film className="h-3.5 w-3.5" /> {room.videoUrl ? "Change the film" : "Pick a film"}
             </p>
@@ -367,7 +367,7 @@ export function WatchRoom() {
           </div>
 
           {/* bulk-add many episodes at once */}
-          <div className="rounded-[var(--season-radius-sm)] border border-line p-6 dark:border-line-dark">
+          <div className="card-surface p-6">
             <p className="eyebrow mb-4 flex items-center gap-2">
               <ListPlus className="h-3.5 w-3.5" /> Add a whole season at once
             </p>
@@ -410,7 +410,7 @@ export function WatchRoom() {
 
           {/* the playlist itself */}
           {room.playlist.length > 0 && (
-            <div className="rounded-[var(--season-radius-sm)] border border-line p-6 dark:border-line-dark">
+            <div className="card-surface p-6">
               <p className="eyebrow mb-4">Playlist ({room.playlist.length})</p>
               <ul className="space-y-2">
                 {room.playlist.map((ep, i) => {

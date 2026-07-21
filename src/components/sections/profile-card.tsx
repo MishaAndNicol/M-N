@@ -25,7 +25,7 @@ export function ProfileCard({ person, delay = 0 }: { person: Person; delay?: num
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-80px" }}
       transition={{ duration: 0.7, delay, ease: [0.16, 1, 0.3, 1] }}
-      className="group overflow-hidden rounded-[var(--season-radius)] border border-line bg-white/40 dark:border-line-dark dark:bg-white/[0.02]"
+      className="card-surface group overflow-hidden"
     >
       <div className="relative aspect-[4/5] overflow-hidden bg-line dark:bg-line-dark">
         <Image

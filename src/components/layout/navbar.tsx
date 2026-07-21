@@ -38,11 +38,15 @@ export function Navbar() {
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "rounded-full px-3 py-1.5 text-sm text-mist transition-colors hover:text-ink dark:hover:text-paper",
-                  pathname === link.href && "bg-ink/[0.04] text-ink dark:bg-white/[0.06] dark:text-paper"
+                  "relative rounded-full px-3 py-1.5 text-sm text-mist transition-colors hover:text-ink",
+                  "dark:rounded-none dark:px-2.5 dark:text-[11px] dark:font-medium dark:uppercase dark:tracking-[0.18em] dark:hover:text-paper",
+                  pathname === link.href && "bg-ink/[0.04] text-ink dark:bg-transparent dark:text-thread"
                 )}
               >
                 {link.label}
+                {pathname === link.href && (
+                  <span className="absolute inset-x-2 -bottom-0.5 hidden h-px bg-thread dark:block" />
+                )}
               </Link>
             ))}
           </nav>
@@ -73,7 +77,7 @@ export function Navbar() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] bg-paper dark:bg-ink lg:hidden"
+            className="fixed inset-0 z-[60] bg-paper dark:bg-void lg:hidden"
           >
             <div className="container-page flex items-center justify-between py-6">
               <span className="font-display text-[15px] italic">two story</span>

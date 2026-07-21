@@ -19,7 +19,7 @@ export function NotYetGrid() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-60px" }}
           transition={{ duration: 0.6, delay: (i % 3) * 0.08 }}
-          className="group relative overflow-hidden rounded-[var(--season-radius-sm)] border border-dashed border-line bg-white/40 p-7 transition-colors hover:border-thread/40 dark:border-line-dark dark:bg-white/[0.02]"
+          className="card-surface group relative overflow-hidden border-dashed p-7 transition-colors hover:border-thread/40"
         >
           <div
             className={`mb-6 flex h-10 w-10 items-center justify-center rounded-full ${

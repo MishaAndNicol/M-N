@@ -154,7 +154,7 @@ export function MusicList() {
           <motion.div
             animate={{ rotate: playing ? 360 : 0 }}
             transition={{ duration: 5, repeat: playing ? Infinity : 0, ease: "linear" }}
-            className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_center,theme(colors.ink)_0%,theme(colors.ink)_28%,theme(colors.line)_28.5%,theme(colors.ink)_32%,theme(colors.ink)_100%)] shadow-xl dark:bg-[radial-gradient(circle_at_center,theme(colors.paper)_0%,theme(colors.paper)_28%,theme(colors.line-dark)_28.5%,#050608_32%,#050608_100%)]"
+            className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_center,theme(colors.ink)_0%,theme(colors.ink)_28%,theme(colors.line)_28.5%,theme(colors.ink)_32%,theme(colors.ink)_100%)] shadow-xl dark:bg-[radial-gradient(circle_at_center,theme(colors.paper)_0%,theme(colors.paper)_28%,theme(colors.line-dark)_28.5%,theme(colors.void-deep)_32%,theme(colors.void-deep)_100%)]"
           />
           <div className="relative z-10 flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-paper bg-thread dark:border-ink">
             {active.art ? (

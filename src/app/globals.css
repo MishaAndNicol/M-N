@@ -5,19 +5,31 @@
 @layer base {
   :root {
     color-scheme: light;
-    /* Warm rust ink - the light-mode accent reads like a fountain-pen
-       mark on paper. RGB triplets (not hex) so Tailwind's /opacity
+    /* "Девятый вал" - dawn gold breaking through the storm clouds over a
+       turbulent teal sea. RGB triplets (not hex) so Tailwind's /opacity
        modifiers - bg-thread/10, border-thread/[0.06], etc. - keep working
        unchanged across the whole app; only the values here change. */
-    --accent-rgb: 168 69 44;
-    --accent-soft-rgb: 201 136 101;
+    --accent-rgb: 199 138 54;
+    --accent-soft-rgb: 74 108 100;
+    /* Foam hairline - divider/border color in light mode. */
+    --line-dark-rgb: 222 210 172;
+    /* Day face: Playfair Display. See fontFamily.display in tailwind.config.ts. */
+    --font-display: var(--font-playfair);
   }
   .dark {
     color-scheme: dark;
-    /* Warm ember glow - the dark-mode accent, closer to firelight than
-       to a UI blue. */
-    --accent-rgb: 232 147 90;
-    --accent-soft-rgb: 242 183 140;
+    /* "Звёздная ночь" - Van Gogh's chrome-yellow stars and moon. Not the
+       warm dawn-gold of daytime pushed darker; a wholly different hue
+       family, closer to lamplight caught in thick impasto. */
+    --accent-rgb: 244 203 88;
+    --accent-soft-rgb: 106 150 196;
+    /* Deep cobalt hairline - the swirling ultramarine sky's structure,
+       not a darker shade of the foam line. */
+    --line-dark-rgb: 42 58 112;
+    /* Night face: Cormorant. Taller, cooler, more wind-blown than
+       Playfair - every h1-h4 and .font-display element switches
+       automatically. */
+    --font-display: var(--font-cormorant);
   }
 
   html {
@@ -25,26 +37,60 @@
   }
 
   body {
-    @apply bg-paper text-ink dark:bg-ink dark:text-paper font-body antialiased;
+    @apply bg-paper text-ink dark:bg-void dark:text-paper font-body antialiased;
     font-feature-settings: "ss01" 1, "cv01" 1;
   }
 
-  /* Warm paper grain in light mode - a fine noise texture plus a very
-     faint warm vignette, so the page reads as paper rather than a flat
-     UI panel. Dark mode instead gets a cinematic radial vignette - a
-     soft pool of light behind the content, deep shadow at the edges. */
+  /* Light mode is a stormy sea at first light - "Девятый вал": a fine
+     turbulence texture retinted teal-foam instead of paper fibre, a
+     warm gold crack of dawn breaking through cloud at the top, a deep
+     teal-green swell rising from below, and faint diagonal foam
+     striations standing in for wave-crest brushwork. Dark mode is an
+     actual night sky pulled toward Van Gogh: layered star fields at two
+     densities (one pale, one warm chrome-yellow) plus swirling cobalt
+     nebula glows, no grain, no foam - the two themes don't share a
+     single texture. */
   body {
     background-image:
-      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 0.55  0 0 0 0 0.47  0 0 0 0 0.35  0 0 0 0.05 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
-      radial-gradient(ellipse 80% 55% at 50% -10%, rgba(168, 69, 44, 0.05), transparent);
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 0.30  0 0 0 0 0.38  0 0 0 0 0.36  0 0 0 0.045 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
+      repeating-linear-gradient(98deg, rgba(255,252,240,0.05) 0px, rgba(255,252,240,0.05) 1px, transparent 1px, transparent 15px),
+      radial-gradient(ellipse 75% 42% at 50% -6%, rgba(199, 138, 54, 0.20), transparent 70%),
+      radial-gradient(ellipse 90% 60% at 50% 112%, rgba(27, 58, 53, 0.30), transparent 65%);
     background-attachment: fixed;
   }
   .dark body {
     background-image:
-      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 1  0 0 0 0 0.85  0 0 0 0 0.7  0 0 0 0.035 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
-      radial-gradient(ellipse 70% 60% at 50% 0%, rgba(232, 147, 90, 0.09), transparent 60%),
-      radial-gradient(ellipse 100% 60% at 50% 100%, rgba(0, 0, 0, 0.55), transparent);
+      /* fine star field */
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='260'><filter id='s'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='7' stitchTiles='stitch' result='n'/><feColorMatrix in='n' type='matrix' values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 22 -20.4'/></filter><rect width='100%25' height='100%25' filter='url(%23s)'/></svg>"),
+      /* coarser field, warm chrome-yellow rather than white - Van Gogh's
+         stars carry lamplight, not cold starlight */
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='420' height='420'><filter id='s2'><feTurbulence type='fractalNoise' baseFrequency='0.35' numOctaves='2' seed='31' stitchTiles='stitch' result='n'/><feColorMatrix in='n' type='matrix' values='0 0 0 0 0.98  0 0 0 0 0.82  0 0 0 0 0.38  0 0 0 42 -40.6'/></filter><rect width='100%25' height='100%25' filter='url(%23s2)'/></svg>"),
+      radial-gradient(ellipse 65% 48% at 20% 10%, rgba(52, 74, 158, 0.30), transparent 62%),
+      radial-gradient(ellipse 60% 42% at 88% 26%, rgba(37, 92, 130, 0.22), transparent 62%),
+      radial-gradient(ellipse 40% 32% at 78% 14%, rgba(244, 203, 88, 0.16), transparent 70%),
+      radial-gradient(ellipse 90% 60% at 50% 100%, rgba(2, 4, 12, 0.85), transparent);
     background-attachment: fixed;
+  }
+
+  /* Slow-drifting swirl/swell layer, entirely separate from the body's
+     own (fixed, static) background above. A dedicated fixed pseudo-
+     element so its animation never touches `body` itself - transforming
+     body would break every other position:fixed element on the page
+     (navbar, cursor glow) by handing them a new containing block. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: -15%;
+    z-index: -1;
+    pointer-events: none;
+  }
+  body::before {
+    background: radial-gradient(ellipse 60% 30% at 50% 68%, rgba(74, 108, 100, 0.16), transparent 70%);
+    animation: swell-drift 18s ease-in-out infinite;
+  }
+  .dark body::before {
+    background: conic-gradient(from 210deg at 28% 22%, rgba(42, 58, 112, 0.5), rgba(37, 92, 130, 0.25) 25%, transparent 45%, rgba(52, 74, 158, 0.35) 70%, rgba(42, 58, 112, 0.5) 100%);
+    animation: swirl-drift 26s ease-in-out infinite;
   }
 
   ::selection {
@@ -64,7 +110,10 @@
 
 @layer utilities {
   .glass {
-    @apply bg-white/60 dark:bg-white/[0.04] backdrop-blur-xl border border-white/40 dark:border-white/[0.08];
+    @apply bg-white/60 dark:bg-white/[0.03] backdrop-blur-xl border border-white/40 dark:border-thread/[0.15];
+  }
+  .dark .glass {
+    box-shadow: 0 0 0 1px rgba(244, 203, 88, 0.05), 0 8px 30px -12px rgba(0, 0, 0, 0.6);
   }
 
   .container-page {
@@ -75,14 +124,63 @@
     text-wrap: balance;
   }
 
-  /* Handwritten annotation, not a UI label - each chapter number and
-     section tag reads like something jotted in the margin rather than a
-     stamped-out eyebrow-caps pattern. No forced `display` here - callers
-     that pair it with an icon add `flex items-center gap-2` themselves
-     and that still works normally. */
+  /* Gallery-plaque annotation, not a UI label - each chapter number and
+     section tag reads like the engraved caption beneath a marine oil
+     painting: an italic display face, a small wave mark, no handwriting,
+     no rotation. No forced `display` here - callers that pair it with an
+     icon add `flex items-center gap-2` themselves and that still works
+     normally. */
   .eyebrow {
-    @apply font-hand text-xl leading-none text-thread;
-    transform: rotate(-2deg);
+    @apply font-display text-base italic tracking-[0.02em] text-thread;
+  }
+  .eyebrow::before {
+    content: "\301C";
+    margin-right: 0.35em;
+    font-style: normal;
+    opacity: 0.75;
+  }
+  /* Night mode swaps the plaque for a small tracked-out catalogue label -
+     the register of a caption under a star chart. Same markup, same
+     content, different voice. */
+  .dark .eyebrow {
+    @apply font-mono text-[11px] font-medium not-italic uppercase tracking-[0.32em];
+  }
+  .dark .eyebrow::before {
+    content: "\2726";
+    margin-right: 0.1em;
+    font-size: 0.85em;
+    opacity: 1;
+  }
+
+  /* Shared card treatment used across profile, library, journey, watch,
+     memories, etc. Light mode: a foam-glass pane with a hint of dawn
+     light along its top edge, season-driven radius. Dark mode: a
+     faceted star-chart plaque - clipped corners, cool hairline border,
+     faint inner glow - independent of season. */
+  .card-surface {
+    @apply rounded-[var(--season-radius)] border border-line bg-white/40;
+    background-image: linear-gradient(180deg, rgba(199, 138, 54, 0.07), transparent 40%);
+    box-shadow: 0 20px 40px -32px rgba(27, 36, 32, 0.35);
+    transition: box-shadow 0.3s ease, border-color 0.3s ease;
+  }
+  .card-surface:hover {
+    border-color: rgba(199, 138, 54, 0.4);
+  }
+  .dark .card-surface {
+    @apply border-line-dark bg-[rgba(15,18,32,0.55)];
+    background-image: none;
+    border-radius: 0.35rem;
+    clip-path: polygon(
+      0 14px, 14px 0,
+      100% 0, 100% calc(100% - 14px),
+      calc(100% - 14px) 100%, 0 100%
+    );
+    box-shadow: inset 0 0 0 1px rgba(244, 203, 88, 0.06), 0 20px 45px -30px rgba(0, 0, 0, 0.9);
+    transition: box-shadow 0.3s ease, border-color 0.3s ease;
+  }
+  .dark .card-surface:hover {
+    border-color: rgba(244, 203, 88, 0.35);
+    box-shadow: inset 0 0 0 1px rgba(244, 203, 88, 0.12), 0 20px 45px -30px rgba(0, 0, 0, 0.9);
   }
 }
 
@@ -130,6 +228,15 @@ html[data-season="winter"] {
   --season-accent: #6f9bd1;
 }
 
+/* Night overrides every season's radius to something sharper and more
+   drafted - star charts don't get softer in summer. Higher specificity
+   (type + class + attribute) than the plain html[data-season=...] rules
+   above, so it wins regardless of which season is active. */
+html.dark[data-season] {
+  --season-radius: 0.4rem;
+  --season-radius-sm: 0.3rem;
+}
+
 .season-particle {
   position: absolute;
   top: -8%;
@@ -174,4 +281,13 @@ html[data-season="winter"] {
 .dark .season-particle--winter,
 .dark .season-particle--summer {
   opacity: 0.4;
+}
+
+/* Gentle star twinkle, used by the cursor glow in dark mode. */
+@keyframes twinkle {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+.dark .cursor-glow {
+  animation: twinkle 3.2s ease-in-out infinite;
 }

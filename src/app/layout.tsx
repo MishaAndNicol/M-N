@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Fraunces, Work_Sans, IBM_Plex_Mono, Caveat } from "next/font/google";
+import { Playfair_Display, Work_Sans, IBM_Plex_Mono, Cormorant } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/layout/theme-provider";
 import { Navbar } from "@/components/layout/navbar";
@@ -8,10 +8,10 @@ import { CursorGlow } from "@/components/layout/cursor-glow";
 import { SeasonProvider } from "@/components/layout/season-provider";
 import { SeasonAtmosphere } from "@/components/layout/season-atmosphere";
 
-const fraunces = Fraunces({
+const playfair = Playfair_Display({
   subsets: ["latin"],
-  variable: "--font-fraunces",
-  weight: ["300", "400", "500", "600"],
+  variable: "--font-playfair",
+  weight: ["400", "500", "600", "700", "800"],
   style: ["normal", "italic"],
 });
 
@@ -29,13 +29,15 @@ const mono = IBM_Plex_Mono({
   weight: ["400", "500"],
 });
 
-// Handwritten accent - used sparingly (eyebrows, small annotations) for
-// the "note pinned to the page" feel, never for body copy or anything
-// that needs to be easily scannable.
-const caveat = Caveat({
+// Night-mode display face - taller, cooler, more wind-blown than
+// Playfair Display. Swapped in purely via the --font-display CSS
+// variable (globals.css), so every heading site-wide changes register
+// between themes without touching a single component.
+const cormorant = Cormorant({
   subsets: ["latin"],
-  variable: "--font-caveat",
-  weight: ["500", "600", "700"],
+  variable: "--font-cormorant",
+  weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
@@ -52,7 +54,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${fraunces.variable} ${workSans.variable} ${mono.variable} ${caveat.variable}`}>
+      <body className={`${playfair.variable} ${workSans.variable} ${mono.variable} ${cormorant.variable}`}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
           <SeasonProvider>
             <SeasonAtmosphere />
