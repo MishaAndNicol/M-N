@@ -18,7 +18,7 @@ Open http://localhost:3000. Works immediately - no Firebase required.
 - **Journey** - distance calculator (haversine) + animated stylized map with a flight path between the two cities
 - **Memories** - filterable gallery grid with a shared-layout modal
 - **Conversations** - animated chat-bubble timeline
-- **Music** - vinyl animation + track list (swap in real Spotify/YouTube embeds when ready)
+- **Music** - vinyl animation + track list; plays real audio from Cloudflare R2 (`audioUrl` per track), with Spotify/YouTube embed as a fallback if you'd rather link out - see `CLOUDFLARE_R2_SETUP.md`
 - **Watch** (`/watch`) - paste a public Cloudflare R2 video URL, play it in a plain HTML5 `<video>`, and play/pause/seek stay synced live between both of you via Firestore. Supports a shared playlist too. Firestore-backed (`watchRoom/room`), local-only demo mode until Firebase is connected. See "Watch room setup" below for the one Firestore rule it needs.
 - **Dreams** - future-goals cards, deliberately framed as not-yet-happened
 - **Countdown** - flip-digit countdown to a target date, confetti on completion

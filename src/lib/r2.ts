@@ -21,14 +21,20 @@ const R2_PUBLIC_BASE_URL = RAW_BASE_URL ? RAW_BASE_URL.replace(/\/+$/, "") : nul
 
 // Turns whatever the person pasted into a full https:// URL, or returns
 // null if it can't be resolved (a bare object key with no base URL
-// configured - nothing to glue it onto).
-export function resolveVideoUrl(input: string): string | null {
+// configured - nothing to glue it onto). Works for any object in the
+// bucket - video files, audio files, whatever - it's just URL resolution,
+// nothing video-specific about it.
+export function resolveR2Url(input: string): string | null {
   const trimmed = input.trim();
   if (!trimmed) return null;
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
   if (!R2_PUBLIC_BASE_URL) return null;
   return `${R2_PUBLIC_BASE_URL}/${trimmed.replace(/^\/+/, "")}`;
 }
+
+// Back-compat alias - watch-room.tsx was written against this name before
+// the music player also started using R2. Same function either way.
+export const resolveVideoUrl = resolveR2Url;
 
 export function hasR2BaseUrl(): boolean {
   return Boolean(R2_PUBLIC_BASE_URL);

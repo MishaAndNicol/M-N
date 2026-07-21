@@ -143,38 +143,68 @@ export const site = {
     { title: "First time meeting in person", achieved: false },
   ],
 
-  // Real songs only - see brief Section 11. Titles are confirmed real
-  // releases by each artist; spotifyUrl/youtubeUrl are left blank on
-  // purpose - drop in the actual embed links later and they'll play here.
+  // Real songs only - see brief Section 11. `audioUrl` is the primary way
+  // to make a track actually play: paste a public Cloudflare R2 URL (or,
+  // if NEXT_PUBLIC_R2_PUBLIC_BASE_URL is set, just the object key) to your
+  // own audio file for that song, e.g. "homewrecked.mp3". Left blank on
+  // purpose until real files are uploaded - see CLOUDFLARE_R2_SETUP.md.
+  // spotifyUrl/youtubeUrl still work as a fallback embed if you'd rather
+  // link out than host the file yourself.
   playlist: [
     {
       title: "Homewrecked",
       artist: "Adela",
       note: "One of Nicol's favorite artists - a real starting point, not a placeholder.",
+      audioUrl: "",
       spotifyUrl: "",
       youtubeUrl: "",
       art: "",
     },
-    { title: "Superscar", artist: "Adela", note: "", spotifyUrl: "", youtubeUrl: "", art: "" },
-    { title: "MachineGirl", artist: "Adela", note: "", spotifyUrl: "", youtubeUrl: "", art: "" },
-    { title: "Crown", artist: "TXT (Tomorrow X Together)", note: "", spotifyUrl: "", youtubeUrl: "", art: "" },
+    { title: "Superscar", artist: "Adela", note: "", audioUrl: "", spotifyUrl: "", youtubeUrl: "", art: "" },
+    { title: "MachineGirl", artist: "Adela", note: "", audioUrl: "", spotifyUrl: "", youtubeUrl: "", art: "" },
+    {
+      title: "Crown",
+      artist: "TXT (Tomorrow X Together)",
+      note: "",
+      audioUrl: "",
+      spotifyUrl: "",
+      youtubeUrl: "",
+      art: "",
+    },
     {
       title: "0X1=LOVESONG (I Know I Love You)",
       artist: "TXT (Tomorrow X Together)",
       note: "",
+      audioUrl: "",
       spotifyUrl: "",
       youtubeUrl: "",
       art: "",
     },
-    { title: "Deja Vu", artist: "TXT (Tomorrow X Together)", note: "", spotifyUrl: "", youtubeUrl: "", art: "" },
-    { title: "Spring Day", artist: "BTS", note: "", spotifyUrl: "", youtubeUrl: "", art: "" },
-    { title: "Dynamite", artist: "BTS", note: "", spotifyUrl: "", youtubeUrl: "", art: "" },
-    { title: "Life Goes On", artist: "BTS", note: "", spotifyUrl: "", youtubeUrl: "", art: "" },
-    { title: "Gnarly", artist: "Katseye", note: "", spotifyUrl: "", youtubeUrl: "", art: "" },
-    { title: "Touch", artist: "Katseye", note: "", spotifyUrl: "", youtubeUrl: "", art: "" },
-    { title: "Gabriela", artist: "Katseye", note: "", spotifyUrl: "", youtubeUrl: "", art: "" },
-    { title: "Zitti e Buoni", artist: "Måneskin", note: "", spotifyUrl: "", youtubeUrl: "", art: "" },
-    { title: "I Wanna Be Your Slave", artist: "Måneskin", note: "", spotifyUrl: "", youtubeUrl: "", art: "" },
-    { title: "Beggin'", artist: "Måneskin", note: "", spotifyUrl: "", youtubeUrl: "", art: "" },
+    {
+      title: "Deja Vu",
+      artist: "TXT (Tomorrow X Together)",
+      note: "",
+      audioUrl: "",
+      spotifyUrl: "",
+      youtubeUrl: "",
+      art: "",
+    },
+    { title: "Spring Day", artist: "BTS", note: "", audioUrl: "", spotifyUrl: "", youtubeUrl: "", art: "" },
+    { title: "Dynamite", artist: "BTS", note: "", audioUrl: "", spotifyUrl: "", youtubeUrl: "", art: "" },
+    { title: "Life Goes On", artist: "BTS", note: "", audioUrl: "", spotifyUrl: "", youtubeUrl: "", art: "" },
+    { title: "Gnarly", artist: "Katseye", note: "", audioUrl: "", spotifyUrl: "", youtubeUrl: "", art: "" },
+    { title: "Touch", artist: "Katseye", note: "", audioUrl: "", spotifyUrl: "", youtubeUrl: "", art: "" },
+    { title: "Gabriela", artist: "Katseye", note: "", audioUrl: "", spotifyUrl: "", youtubeUrl: "", art: "" },
+    { title: "Zitti e Buoni", artist: "Måneskin", note: "", audioUrl: "", spotifyUrl: "", youtubeUrl: "", art: "" },
+    {
+      title: "I Wanna Be Your Slave",
+      artist: "Måneskin",
+      note: "",
+      audioUrl: "",
+      spotifyUrl: "",
+      youtubeUrl: "",
+      art: "",
+    },
+    { title: "Beggin'", artist: "Måneskin", note: "", audioUrl: "", spotifyUrl: "", youtubeUrl: "", art: "" },
   ],
 };
