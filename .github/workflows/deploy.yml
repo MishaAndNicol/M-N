@@ -40,7 +40,11 @@ jobs:
           NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
           NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
           NEXT_PUBLIC_ADMIN_EMAIL: ${{ secrets.NEXT_PUBLIC_ADMIN_EMAIL }}
-          NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY }}
+
+
+
+          NEXT_PUBLIC_R2_PUBLIC_BASE_URL: ${{ secrets.NEXT_PUBLIC_R2_PUBLIC_BASE_URL }}
+
 
       - name: Add .nojekyll
         run: touch ./out/.nojekyll

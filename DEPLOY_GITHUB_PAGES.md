@@ -36,6 +36,7 @@ const REPO_NAME = "ваше-название-репозитория";
 - `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
 - `NEXT_PUBLIC_FIREBASE_APP_ID`
 - `NEXT_PUBLIC_ADMIN_EMAIL`
+- `NEXT_PUBLIC_R2_PUBLIC_BASE_URL` (опционально — см. `CLOUDFLARE_R2_SETUP.md`)
 
 Это публичные (клиентские) Firebase-ключи — они и так попадут в открытый JS
 на сайте, это нормально для Firebase. Безопасность обеспечивается

@@ -19,7 +19,7 @@ Open http://localhost:3000. Works immediately - no Firebase required.
 - **Memories** - filterable gallery grid with a shared-layout modal
 - **Conversations** - animated chat-bubble timeline
 - **Music** - vinyl animation + track list (swap in real Spotify/YouTube embeds when ready)
-- **Watch** (`/watch`) - paste a Google Drive share link, embed it via Drive's own preview player, do a synced ready-check, and get a countdown so you both press play on the same second. Firestore-backed (`watchRoom/room`), local-only demo mode until Firebase is connected. See "Watch room setup" below for the one Firestore rule it needs.
+- **Watch** (`/watch`) - paste a public Cloudflare R2 video URL, play it in a plain HTML5 `<video>`, and play/pause/seek stay synced live between both of you via Firestore. Supports a shared playlist too. Firestore-backed (`watchRoom/room`), local-only demo mode until Firebase is connected. See "Watch room setup" below for the one Firestore rule it needs.
 - **Dreams** - future-goals cards, deliberately framed as not-yet-happened
 - **Countdown** - flip-digit countdown to a target date, confetti on completion
 - **Guestbook** - Firestore-backed form with realtime updates; runs in a local-only fallback mode until Firebase is connected, so it's demoable right away
@@ -52,15 +52,18 @@ match /watchRoom/{doc} {
 }
 ```
 
-The film itself isn't uploaded through the site - each of you shares the actual
-video file from your own Google Drive (set to "Anyone with the link can view") and
-pastes that link in. Nothing gets copied to Firebase; only the link, a title, and
-the ready/countdown state are stored.
+The film itself isn't uploaded through the site - it lives in a Cloudflare R2
+bucket with public read access, and the link (its public HTTPS URL) is what gets
+pasted into the Watch Room. Nothing gets copied to Firebase; only the URL, a
+title, and the live playback state (`playing`, `positionSeconds`, `syncBy`,
+`syncUpdatedAt`) are stored in `watchRoom/room`.
 
-Drive's embedded player doesn't expose a way to control it from outside, so this
-can't auto-sync play/pause/seeking mid-film like a true watch-party tool would -
-the ready-check + countdown gets you both pressing play at the same moment, and an
-"I paused" button nudges the other person to pause too.
+Because the player is a real `<video>` element (not someone else's embedded
+iframe), play/pause/seek events on either side write straight to Firestore, and
+the other side's listener applies them - so the two of you actually stay in sync
+mid-film, including a resync jump if one side drifts (e.g. after a dropped
+connection). See `CLOUDFLARE_R2_SETUP.md` for how to create the bucket, make it
+public, and upload video files.
 
 ## Editing content
 

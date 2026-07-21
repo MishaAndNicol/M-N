@@ -11,17 +11,18 @@ import {
   type Timestamp,
 } from "firebase/firestore";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
-import { buildDriveMediaUrl } from "@/lib/drive";
+import { resolveVideoUrl, hasR2BaseUrl } from "@/lib/r2";
 import { site } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
 
 // A single entry in the shared playlist - just enough to show a title in
-// the list and re-hydrate the player when picked.
+// the list and re-hydrate the player when picked. `videoUrl` is always a
+// fully-resolved https:// URL (resolved once, at add-time, via
+// resolveVideoUrl) so playback never depends on env config changing later.
 type Episode = {
   id: string;
   title: string;
-  driveLink: string;
-  fileId: string;
+  videoUrl: string;
 };
 
 // Firestore doc shape - single shared "room" document. Two people only, so
@@ -33,8 +34,7 @@ type Episode = {
 // `syncBy` lets a client recognize its own writes coming back through the
 // snapshot listener so it doesn't re-apply them to itself.
 type RoomState = {
-  driveLink: string;
-  fileId: string;
+  videoUrl: string;
   title: string;
   setBy: string;
   playing: boolean;
@@ -45,8 +45,7 @@ type RoomState = {
 };
 
 const EMPTY_ROOM: RoomState = {
-  driveLink: "",
-  fileId: "",
+  videoUrl: "",
   title: "",
   setBy: "",
   playing: false,
@@ -62,25 +61,11 @@ const WHOAMI_KEY = "twostory-watch-whoami";
 // this, we jump instead of letting it drift back in sync on its own.
 const RESYNC_THRESHOLD_SECONDS = 1.5;
 
-// Accepts the common share-link shapes Drive produces and pulls the file id
-// out of any of them:
-//   https://drive.google.com/file/d/FILE_ID/view?usp=sharing
-//   https://drive.google.com/open?id=FILE_ID
-//   https://drive.google.com/uc?id=FILE_ID&export=download
-function extractDriveFileId(url: string): string | null {
-  const patterns = [/\/file\/d\/([a-zA-Z0-9_-]{10,})/, /[?&]id=([a-zA-Z0-9_-]{10,})/];
-  for (const p of patterns) {
-    const match = url.match(p);
-    if (match) return match[1];
-  }
-  return null;
-}
-
 // Turns pasted text (one episode per line) into Episode objects. Accepts a
-// bare link, or "Title - link" / "Title | link" / "Title, link" - anything
-// with the link at the end of the line after a separator. Lines that don't
-// contain a recognizable Drive link are reported back as errors instead of
-// silently dropped.
+// bare R2 URL/key, or "Title - link" / "Title | link" / "Title, link" -
+// anything with the link at the end of the line after a separator. Lines
+// that don't resolve to a playable URL are reported back as errors instead
+// of silently dropped.
 function parseBulkLinks(text: string, startIndex: number): { episodes: Episode[]; errors: string[] } {
   const lines = text
     .split("\n")
@@ -91,21 +76,22 @@ function parseBulkLinks(text: string, startIndex: number): { episodes: Episode[]
   const errors: string[] = [];
 
   lines.forEach((line, i) => {
-    const sepMatch = line.match(/^(.*?)\s*[-|,]\s*(https?:\/\/\S+)$/);
+    const sepMatch = line.match(/^(.*?)\s*[-|,]\s*(\S+)$/);
     const title = sepMatch ? sepMatch[1].trim() : "";
     const link = sepMatch ? sepMatch[2].trim() : line;
 
-    const fileId = extractDriveFileId(link);
-    if (!fileId) {
-      errors.push(`Строка ${i + 1}: «${line.slice(0, 60)}» — не похоже на ссылку Google Drive`);
+    const videoUrl = resolveVideoUrl(link);
+    if (!videoUrl) {
+      errors.push(
+        `Строка ${i + 1}: «${line.slice(0, 60)}» — не похоже на ссылку/ключ R2 (и NEXT_PUBLIC_R2_PUBLIC_BASE_URL не настроен)`
+      );
       return;
     }
 
     episodes.push({
       id: `${Date.now()}-${startIndex + i}-${Math.random().toString(36).slice(2, 7)}`,
       title: title || `Серия ${startIndex + episodes.length + 1}`,
-      driveLink: link,
-      fileId,
+      videoUrl,
     });
   });
 
@@ -122,7 +108,6 @@ function timestampToMillis(ts: Timestamp | null): number | null {
 
 export function WatchRoom() {
   const [connected] = useState(isFirebaseConfigured);
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY;
   const [room, setRoom] = useState<RoomState>(EMPTY_ROOM);
   const [linkInput, setLinkInput] = useState("");
   const [titleInput, setTitleInput] = useState("");
@@ -185,16 +170,19 @@ export function WatchRoom() {
   }
 
   function handleSetFilm() {
-    const id = extractDriveFileId(linkInput.trim());
-    if (!id) {
-      setLinkError("Doesn't look like a Google Drive link. Paste the \"Share\" link for the file.");
+    const videoUrl = resolveVideoUrl(linkInput.trim());
+    if (!videoUrl) {
+      setLinkError(
+        hasR2BaseUrl()
+          ? "Doesn't look like a URL or object key. Paste the public R2 URL, or just the file's key."
+          : "Doesn't look like a URL. Paste the public R2 object URL (or set NEXT_PUBLIC_R2_PUBLIC_BASE_URL to allow pasting bare keys)."
+      );
       return;
     }
     setLinkError(null);
     setVideoError(false);
     writeRoom({
-      driveLink: linkInput.trim(),
-      fileId: id,
+      videoUrl,
       title: titleInput.trim() || "Untitled",
       setBy: myName,
       playing: false,
@@ -220,8 +208,7 @@ export function WatchRoom() {
   function playEpisode(ep: Episode) {
     setVideoError(false);
     writeRoom({
-      driveLink: ep.driveLink,
-      fileId: ep.fileId,
+      videoUrl: ep.videoUrl,
       title: ep.title,
       setBy: myName,
       playing: false,
@@ -235,10 +222,7 @@ export function WatchRoom() {
     writeRoom({ playlist: room.playlist.filter((ep) => ep.id !== id) });
   }
 
-  const mediaUrl = useMemo(
-    () => (room.fileId && apiKey ? buildDriveMediaUrl(room.fileId, apiKey) : null),
-    [room.fileId, apiKey]
-  );
+  const mediaUrl = useMemo(() => (room.videoUrl ? room.videoUrl : null), [room.videoUrl]);
 
   // Reacts to playback state written by the *other* side. Our own writes
   // come back through this same listener (Firestore doesn't distinguish
@@ -247,7 +231,7 @@ export function WatchRoom() {
   // play()/pause() call that triggered the write in the first place.
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !room.fileId) return;
+    if (!video || !room.videoUrl) return;
     if (room.syncBy === myName || !room.syncBy) return;
 
     const stampMs = timestampToMillis(room.syncUpdatedAt);
@@ -272,7 +256,7 @@ export function WatchRoom() {
       applyingRemoteRef.current = false;
     }, 150);
     return () => clearTimeout(clear);
-  }, [room.playing, room.positionSeconds, room.syncBy, room.syncUpdatedAt, room.fileId, myName]);
+  }, [room.playing, room.positionSeconds, room.syncBy, room.syncUpdatedAt, room.videoUrl, myName]);
 
   function handleLocalPlay() {
     if (applyingRemoteRef.current) return;
@@ -322,16 +306,6 @@ export function WatchRoom() {
         </div>
       )}
 
-      {!apiKey && (
-        <div className="flex items-start gap-2 rounded-[var(--season-radius-sm)] border border-dashed border-line bg-thread/[0.04] p-4 text-sm text-mist dark:border-line-dark">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>
-            No Drive API key set (<code className="font-mono">NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY</code>), so
-            the player can&apos;t load film bytes yet - see <code className="font-mono">.env.example</code>.
-          </span>
-        </div>
-      )}
-
       {/* who am I */}
       {!whoAmI && (
         <div className="rounded-[var(--season-radius-sm)] border border-line p-6 dark:border-line-dark">
@@ -359,7 +333,7 @@ export function WatchRoom() {
           {/* set / change film */}
           <div className="rounded-[var(--season-radius-sm)] border border-line p-6 dark:border-line-dark">
             <p className="eyebrow mb-4 flex items-center gap-2">
-              <Film className="h-3.5 w-3.5" /> {room.fileId ? "Change the film" : "Pick a film"}
+              <Film className="h-3.5 w-3.5" /> {room.videoUrl ? "Change the film" : "Pick a film"}
             </p>
             <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
               <div className="relative">
@@ -367,7 +341,7 @@ export function WatchRoom() {
                 <input
                   value={linkInput}
                   onChange={(e) => setLinkInput(e.target.value)}
-                  placeholder="Google Drive share link"
+                  placeholder="R2 public video URL (or object key)"
                   className="w-full rounded-full border border-line bg-transparent py-2 pl-9 pr-4 text-sm outline-none transition-colors focus:border-thread dark:border-line-dark"
                 />
               </div>
@@ -387,8 +361,8 @@ export function WatchRoom() {
             </div>
             {linkError && <p className="mt-3 text-xs text-red-500">{linkError}</p>}
             <p className="mt-3 text-xs text-mist">
-              The file needs to be shared as &quot;Anyone with the link can view&quot; in Drive, or streaming
-              below will show an access error.
+              The R2 bucket (or object) needs public read access, or streaming below will show an access
+              error. See <code className="font-mono">CLOUDFLARE_R2_SETUP.md</code> for the one-time setup.
             </p>
           </div>
 
@@ -398,16 +372,16 @@ export function WatchRoom() {
               <ListPlus className="h-3.5 w-3.5" /> Add a whole season at once
             </p>
             <p className="mb-3 text-xs text-mist">
-              Paste one link per line. Optionally add a title before it, separated by{" "}
+              Paste one link (or object key) per line. Optionally add a title before it, separated by{" "}
               <code className="font-mono">-</code>, <code className="font-mono">|</code>, or{" "}
               <code className="font-mono">,</code> — e.g.{" "}
-              <code className="font-mono">Episode 1 - https://drive.google.com/file/d/.../view</code>. A bare
-              link on its own line works too; it&apos;ll be numbered automatically.
+              <code className="font-mono">Episode 1 - https://pub-xxxx.r2.dev/episode-01.mp4</code>. A bare
+              link (or key) on its own line works too; it&apos;ll be numbered automatically.
             </p>
             <textarea
               value={bulkInput}
               onChange={(e) => setBulkInput(e.target.value)}
-              placeholder={"Episode 1 - https://drive.google.com/file/d/FILE_ID_1/view\nEpisode 2 - https://drive.google.com/file/d/FILE_ID_2/view\n..."}
+              placeholder={"Episode 1 - https://pub-xxxx.r2.dev/episode-01.mp4\nEpisode 2 - https://pub-xxxx.r2.dev/episode-02.mp4\n..."}
               rows={5}
               className="w-full rounded-[var(--season-radius-sm)] border border-line bg-transparent p-3 font-mono text-xs outline-none transition-colors focus:border-thread dark:border-line-dark"
             />
@@ -440,7 +414,7 @@ export function WatchRoom() {
               <p className="eyebrow mb-4">Playlist ({room.playlist.length})</p>
               <ul className="space-y-2">
                 {room.playlist.map((ep, i) => {
-                  const isPlaying = ep.fileId === room.fileId;
+                  const isPlaying = ep.videoUrl === room.videoUrl;
                   return (
                     <li
                       key={ep.id}
@@ -497,6 +471,8 @@ export function WatchRoom() {
                   ref={videoRef}
                   src={mediaUrl}
                   controls
+                  playsInline
+                  preload="metadata"
                   className="h-full w-full"
                   onPlay={handleLocalPlay}
                   onPause={handleLocalPause}
@@ -512,8 +488,8 @@ export function WatchRoom() {
                       exit={{ opacity: 0 }}
                       className="pointer-events-none absolute inset-0 grid place-items-center bg-black/70 p-6 text-center text-sm text-white"
                     >
-                      Не удалось загрузить файл. Проверьте, что доступ в Drive открыт по ссылке
-                      &quot;Anyone with the link&quot; и что API-ключ настроен и не ограничен другим доменом.
+                      Не удалось загрузить файл. Проверьте, что объект в R2 доступен публично (Public
+                      Access включён для бакета или объекта) и что ссылка указывает на сам видеофайл.
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -527,9 +503,7 @@ export function WatchRoom() {
             </div>
           ) : (
             <div className="rounded-[var(--season-radius-sm)] border border-dashed border-line p-10 text-center text-sm text-mist dark:border-line-dark">
-              {room.fileId
-                ? "Film is set, but no Drive API key is configured yet - see the note above."
-                : "No film set yet. Paste a Drive link above to start."}
+              No film set yet. Paste an R2 video link above to start.
             </div>
           )}
         </>

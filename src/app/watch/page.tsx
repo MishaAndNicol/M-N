@@ -13,8 +13,8 @@ export default function WatchPage() {
             Same film, two screens
           </h1>
           <p className="mt-5 max-w-lg text-mist">
-            Drop in a Google Drive link, both say when you&apos;re ready, and press play on the same
-            second - not the same room, but close enough.
+            Drop in a video link, and play, pause, and seeking stay in sync automatically - not the same
+            room, but close enough.
           </p>
         </Reveal>
 
