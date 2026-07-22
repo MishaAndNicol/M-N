@@ -22,17 +22,16 @@ const config: Config = {
         // an RGB triplet so opacity modifiers (border-line-dark/40, etc.)
         // keep working.
         "line-dark": "rgb(var(--line-dark-rgb) / <alpha-value>)",
-        // Dedicated dark-mode canvas - deep ultramarine night, distinct
-        // from `ink` (which stays the sea-ink light-mode text colour).
-        // Body background switches to this in dark rather than reusing
-        // `ink`.
-        void: "#08090D",
-        "void-deep": "#020203",
+        // Dedicated dark-mode canvas - true black, distinct from `ink`
+        // (which stays the sea-ink light-mode text colour). Body
+        // background switches to this in dark rather than reusing `ink`.
+        void: "#000000",
+        "void-deep": "#000000",
         // Warm dawn-gold in light mode (the light breaking through the
-        // storm clouds in the Ninth Wave), chrome-yellow starlight in
-        // dark mode (Van Gogh's stars and moon) - same utility classes
-        // everywhere (thread, thread/20, border-thread...), the colour
-        // itself switches with the theme via the CSS variables below.
+        // storm clouds in the Ninth Wave), white in dark mode - same
+        // utility classes everywhere (thread, thread/20, border-thread...),
+        // the colour itself switches with the theme via the CSS
+        // variables below.
         thread: "rgb(var(--accent-rgb) / <alpha-value>)",
         "thread-soft": "rgb(var(--accent-soft-rgb) / <alpha-value>)",
         ember: "#C1502F",
@@ -62,13 +61,8 @@ const config: Config = {
           "0%, 100%": { transform: "translateY(0px)" },
           "50%": { transform: "translateY(-10px)" },
         },
-        // Slow painterly sway - used for the day-mode wave haze and the
-        // night-mode sky swirl layers. Different durations per layer
-        // give a parallax-drift feel without a literal wave/orbit path.
-        "swirl-drift": {
-          "0%, 100%": { transform: "translate3d(0,0,0) rotate(0deg)" },
-          "50%": { transform: "translate3d(-1.5%,1%,0) rotate(1.2deg)" },
-        },
+        // Slow painterly sway used for the body's drifting swell layer -
+        // same animation in both themes now (see globals.css).
         "swell-drift": {
           "0%, 100%": { transform: "translate3d(0,0,0)" },
           "50%": { transform: "translate3d(1.2%,0.6%,0)" },
@@ -78,7 +72,6 @@ const config: Config = {
         "fade-up": "fade-up 0.8s cubic-bezier(0.16,1,0.3,1) forwards",
         "thread-draw": "thread-draw 2.4s ease-out forwards",
         float: "float 6s ease-in-out infinite",
-        "swirl-drift": "swirl-drift 22s ease-in-out infinite",
         "swell-drift": "swell-drift 16s ease-in-out infinite",
       },
     },

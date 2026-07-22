@@ -14,6 +14,7 @@ import { getDb, isFirebaseConfigured } from "@/lib/firebase";
 import { resolveVideoUrl, hasR2BaseUrl } from "@/lib/r2";
 import { site } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
+import { WatchChat } from "@/components/sections/watch-chat";
 
 // A single entry in the shared playlist - just enough to show a title in
 // the list and re-hydrate the player when picked. `videoUrl` is always a
@@ -329,7 +330,8 @@ export function WatchRoom() {
       )}
 
       {whoAmI && (
-        <>
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_380px] lg:items-start">
+          <div className="space-y-8">
           {/* set / change film */}
           <div className="card-surface p-6">
             <p className="eyebrow mb-4 flex items-center gap-2">
@@ -506,7 +508,14 @@ export function WatchRoom() {
               No film set yet. Paste an R2 video link above to start.
             </div>
           )}
-        </>
+          </div>
+
+          {/* live chat - tall, sticky alongside the player so a film night
+              has somewhere to actually talk */}
+          <div className="lg:sticky lg:top-24">
+            <WatchChat whoAmI={whoAmI} nameA={nameA} nameB={nameB} />
+          </div>
+        </div>
       )}
     </div>
   );

@@ -34,8 +34,8 @@ export function MemoriesGrid() {
             onClick={() => setFilter(c)}
             className={`rounded-full px-4 py-1.5 font-mono text-xs uppercase tracking-wider transition-colors ${
               filter === c
-                ? "bg-ink text-paper dark:border dark:border-thread/60 dark:bg-thread/10 dark:text-thread dark:shadow-[0_0_14px_-6px_rgb(var(--accent-rgb)/0.6)]"
-                : "border border-line text-mist hover:text-ink dark:border-line-dark dark:hover:text-paper"
+                ? "bg-ink text-paper dark:bg-white dark:text-black"
+                : "border border-line text-mist hover:text-ink dark:border-line-dark dark:hover:text-white"
             }`}
           >
             {c}

@@ -36,7 +36,7 @@ function Shelf({
     >
       <div className="flex items-center gap-2.5 text-thread">
         <Icon className="h-4 w-4" />
-        <h3 className="font-display text-xl text-ink dark:text-paper">{label}</h3>
+        <h3 className="font-display text-xl text-ink dark:text-white">{label}</h3>
       </div>
 
       {items.length === 0 ? (

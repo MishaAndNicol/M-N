@@ -8,7 +8,7 @@ export default function MemoriesPage() {
     <div className="pb-32 pt-40">
       <div className="container-page">
         <Reveal>
-          <p className="eyebrow mb-4">Chapter 03</p>
+          <p className="eyebrow mb-4">Chapter 02</p>
           <h1 className="max-w-xl text-balance font-display text-4xl font-light md:text-5xl">
             The moments worth keeping
           </h1>

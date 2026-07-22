@@ -8,7 +8,7 @@ export default function ConversationsPage() {
     <div className="pb-32 pt-40">
       <div className="container-page">
         <Reveal>
-          <p className="eyebrow mb-4 justify-center text-center">Chapter 04</p>
+          <p className="eyebrow mb-4 justify-center text-center">Chapter 03</p>
           <h1 className="text-balance text-center font-display text-4xl font-light md:text-5xl">
             The words that stuck
           </h1>

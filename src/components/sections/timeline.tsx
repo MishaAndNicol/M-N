@@ -19,7 +19,7 @@ export function Timeline({ items }: { items: Item[] }) {
           transition={{ duration: 0.6, delay: i * 0.08 }}
           className="relative pb-14 last:pb-0"
         >
-          <span className="absolute -left-[41px] top-1 h-3 w-3 rounded-full border-2 border-thread bg-paper dark:bg-ink" />
+          <span className="absolute -left-[41px] top-1 h-3 w-3 rounded-full border-2 border-thread bg-paper dark:bg-void" />
           <p className="font-mono text-xs uppercase tracking-widest text-mist">{item.label}</p>
           <h3 className="mt-1.5 font-display text-xl">{item.title}</h3>
           <p className="mt-1.5 max-w-md text-sm text-mist">{item.text}</p>

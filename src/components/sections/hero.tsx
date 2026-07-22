@@ -10,7 +10,7 @@ export function Hero() {
   return (
     <section className="relative flex min-h-[100svh] items-center overflow-hidden">
       <ThreadCanvas />
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-paper dark:to-ink" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-paper dark:to-void" />
 
       <div className="container-page relative z-10">
         <motion.p
@@ -44,7 +44,7 @@ export function Hero() {
         >
           <Link
             href="/about"
-            className="group inline-flex items-center gap-3 rounded-full bg-ink px-6 py-3 text-sm text-paper transition-transform hover:scale-[1.03] dark:rounded-none dark:border dark:border-thread/50 dark:bg-transparent dark:px-7 dark:py-3 dark:font-mono dark:text-[11px] dark:uppercase dark:tracking-[0.28em] dark:text-thread dark:shadow-[0_0_20px_-6px_rgb(var(--accent-rgb)/0.5)] dark:hover:bg-thread/10 dark:hover:shadow-[0_0_28px_-4px_rgb(var(--accent-rgb)/0.7)]"
+            className="group inline-flex items-center gap-3 rounded-full bg-ink px-6 py-3 text-sm text-paper transition-transform hover:scale-[1.03] dark:bg-white dark:text-black"
           >
             Begin the story
             <span className="transition-transform group-hover:translate-x-1">→</span>

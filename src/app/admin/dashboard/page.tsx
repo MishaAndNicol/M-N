@@ -8,7 +8,7 @@ const PANELS = [
   { title: "Library", desc: "Add books, movies, games, and places to the Shared Library page." },
   { title: "Not Yet", desc: "Flip an item to \"it happened\" once it's real." },
   { title: "Music", desc: "Add tracks with Spotify or YouTube embed links." },
-  { title: "Journey", desc: "Set a real meeting date once one exists - the Thread of Fate updates automatically." },
+  { title: "Watch together", desc: "Manage the shared watch-room playlist and chat." },
   { title: "Site text", desc: "Edit hero copy, bios, and quotes." },
 ];
 

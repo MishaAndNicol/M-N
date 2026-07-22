@@ -154,9 +154,9 @@ export function MusicList() {
           <motion.div
             animate={{ rotate: playing ? 360 : 0 }}
             transition={{ duration: 5, repeat: playing ? Infinity : 0, ease: "linear" }}
-            className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_center,theme(colors.ink)_0%,theme(colors.ink)_28%,theme(colors.line)_28.5%,theme(colors.ink)_32%,theme(colors.ink)_100%)] shadow-xl dark:bg-[radial-gradient(circle_at_center,theme(colors.paper)_0%,theme(colors.paper)_28%,theme(colors.line-dark)_28.5%,theme(colors.void-deep)_32%,theme(colors.void-deep)_100%)]"
+            className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_center,theme(colors.ink)_0%,theme(colors.ink)_28%,theme(colors.line)_28.5%,theme(colors.ink)_32%,theme(colors.ink)_100%)] shadow-xl dark:bg-[radial-gradient(circle_at_center,white_0%,white_28%,theme(colors.line-dark)_28.5%,theme(colors.void-deep)_32%,theme(colors.void-deep)_100%)]"
           />
-          <div className="relative z-10 flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-paper bg-thread dark:border-ink">
+          <div className="relative z-10 flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-paper bg-thread dark:border-void">
             {active.art ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={active.art} alt={active.title} className="h-full w-full object-cover" />
@@ -177,7 +177,7 @@ export function MusicList() {
             <button
               onClick={togglePlay}
               aria-label={playing ? "Pause" : "Play"}
-              className="mt-6 grid h-12 w-12 place-items-center rounded-full bg-ink text-paper transition-transform hover:scale-105 dark:bg-paper dark:text-ink"
+              className="mt-6 grid h-12 w-12 place-items-center rounded-full bg-ink text-paper transition-transform hover:scale-105 dark:bg-white dark:text-black"
             >
               {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 translate-x-0.5" />}
             </button>
@@ -232,7 +232,7 @@ export function MusicList() {
             <button
               onClick={togglePlay}
               aria-label={playing ? "Pause" : "Play"}
-              className="mt-6 grid h-12 w-12 place-items-center rounded-full bg-ink text-paper transition-transform hover:scale-105 dark:bg-paper dark:text-ink"
+              className="mt-6 grid h-12 w-12 place-items-center rounded-full bg-ink text-paper transition-transform hover:scale-105 dark:bg-white dark:text-black"
             >
               {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 translate-x-0.5" />}
             </button>
@@ -266,7 +266,7 @@ export function MusicList() {
                 className="flex w-full items-center justify-between py-4 text-left transition-colors hover:text-thread"
               >
                 <span className="flex items-baseline gap-2.5">
-                  <span className="font-display text-lg text-ink dark:text-paper">{group.artist}</span>
+                  <span className="font-display text-lg text-ink dark:text-white">{group.artist}</span>
                   <span className="text-xs text-mist">
                     {group.tracks.length} {group.tracks.length === 1 ? "track" : "tracks"}
                   </span>
@@ -306,7 +306,7 @@ export function MusicList() {
                                 <Play className="h-3.5 w-3.5" />
                               )}
                             </span>
-                            <span className="min-w-0 flex-1 font-display text-base text-ink dark:text-paper">
+                            <span className="min-w-0 flex-1 font-display text-base text-ink dark:text-white">
                               {title}
                             </span>
                             {(track.audioUrl || track.spotifyUrl || track.youtubeUrl) && (

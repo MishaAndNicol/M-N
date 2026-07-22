@@ -14,9 +14,7 @@ export const site = {
   // real-time "days" count on the homepage.
   metAt: new Date("2026-07-10"),
 
-  // No meeting date exists yet. Leave this as `null` until one is real -
-  // the Journey page reads this directly and stays in its honest "no date
-  // yet" state for as long as it's null.
+  // No meeting date exists yet. Leave this as `null` until one is real.
   meetingDate: null as Date | null,
 
   hero: {
