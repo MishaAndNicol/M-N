@@ -1,7 +1,6 @@
 import { Reveal } from "@/components/ui/reveal";
 import { site } from "@/lib/site-config";
 import { ProfileCard } from "@/components/sections/profile-card";
-import { Timeline } from "@/components/sections/timeline";
 
 export const metadata = { title: "About us - two story" };
 
@@ -20,16 +19,6 @@ export default function AboutPage() {
           {site.people.map((p, i) => (
             <ProfileCard key={p.name} person={p} delay={i * 0.1} />
           ))}
-        </div>
-      </div>
-
-      <div className="container-page mt-32">
-        <Reveal>
-          <p className="eyebrow mb-4">How it started</p>
-          <h2 className="font-display text-3xl font-light md:text-4xl">Where the thread began</h2>
-        </Reveal>
-        <div className="mt-14">
-          <Timeline items={site.timeline} />
         </div>
       </div>
     </div>

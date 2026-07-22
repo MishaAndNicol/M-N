@@ -12,7 +12,6 @@ const LINKS = [
   { href: "/about", label: "About" },
   { href: "/memories", label: "Memories" },
   { href: "/music", label: "Music" },
-  { href: "/library", label: "Library" },
   { href: "/watch", label: "Watch" },
   { href: "/not-yet", label: "Not Yet" },
 ];

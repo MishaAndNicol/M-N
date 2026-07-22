@@ -3,9 +3,7 @@ import { Reveal } from "@/components/ui/reveal";
 export const metadata = { title: "Admin - two story" };
 
 const PANELS = [
-  { title: "Timeline", desc: "Add, reorder, or edit the milestones shown on the About page." },
   { title: "Memories", desc: "Upload real photos to Storage once they exist, replacing an empty-state tile." },
-  { title: "Library", desc: "Add books, movies, games, and places to the Shared Library page." },
   { title: "Not Yet", desc: "Flip an item to \"it happened\" once it's real." },
   { title: "Music", desc: "Add tracks with Spotify or YouTube embed links." },
   { title: "Watch together", desc: "Manage the shared watch-room playlist and chat." },

@@ -330,9 +330,7 @@ export function WatchRoom() {
       )}
 
       {whoAmI && (
-        <div className="space-y-12">
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_380px] lg:items-start">
-          <div className="space-y-8">
+        <div className="space-y-8">
           {/* set / change film */}
           <div className="card-surface p-6">
             <p className="eyebrow mb-4 flex items-center gap-2">
@@ -363,23 +361,12 @@ export function WatchRoom() {
               </button>
             </div>
             {linkError && <p className="mt-3 text-xs text-red-500">{linkError}</p>}
-            <p className="mt-3 text-xs text-mist">
-              The R2 bucket (or object) needs public read access, or streaming below will show an access
-              error. See <code className="font-mono">CLOUDFLARE_R2_SETUP.md</code> for the one-time setup.
-            </p>
           </div>
 
           {/* bulk-add many episodes at once */}
           <div className="card-surface p-6">
             <p className="eyebrow mb-4 flex items-center gap-2">
               <ListPlus className="h-3.5 w-3.5" /> Add a whole season at once
-            </p>
-            <p className="mb-3 text-xs text-mist">
-              Paste one link (or object key) per line. Optionally add a title before it, separated by{" "}
-              <code className="font-mono">-</code>, <code className="font-mono">|</code>, or{" "}
-              <code className="font-mono">,</code> — e.g.{" "}
-              <code className="font-mono">Episode 1 - https://pub-xxxx.r2.dev/episode-01.mp4</code>. A bare
-              link (or key) on its own line works too; it&apos;ll be numbered automatically.
             </p>
             <textarea
               value={bulkInput}
@@ -454,71 +441,71 @@ export function WatchRoom() {
               </ul>
             </div>
           )}
-          </div>
 
-          {/* live chat - tall, sticky alongside the controls so a film night
-              has somewhere to actually talk */}
-          <div className="lg:sticky lg:top-24">
-            <WatchChat whoAmI={whoAmI} nameA={nameA} nameB={nameB} />
-          </div>
-          </div>
-
-          {/* player - moved below the controls and out of the narrow column
-              so it can run the full page width, sit lower on the page, and
-              actually be big enough to watch comfortably */}
-          {mediaUrl ? (
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="eyebrow">Now playing</p>
-                  <h3 className="font-display text-xl">{room.title || "Untitled"}</h3>
+          {/* player + chat, side by side in the same row so the chat sits
+              level with the screen and it's easy to watch and type at the
+              same time. Chat's column is narrow (only 320px) so the screen
+              itself keeps almost all of its width and doesn't lose much
+              scale. */}
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px] lg:items-start">
+            {mediaUrl ? (
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="eyebrow">Now playing</p>
+                    <h3 className="font-display text-xl">{room.title || "Untitled"}</h3>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-mist">
+                    <Users className="h-3.5 w-3.5" />
+                    {room.syncBy ? `последним управлял: ${room.syncBy}` : "готово к синхронному просмотру"}
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-mist">
-                  <Users className="h-3.5 w-3.5" />
-                  {room.syncBy ? `последним управлял: ${room.syncBy}` : "готово к синхронному просмотру"}
+
+                <div className="relative aspect-video w-full overflow-hidden rounded-[var(--season-radius)] border border-line bg-black dark:border-line-dark lg:max-h-[70vh]">
+                  <video
+                    ref={videoRef}
+                    src={mediaUrl}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    className="h-full w-full"
+                    onPlay={handleLocalPlay}
+                    onPause={handleLocalPause}
+                    onSeeked={handleLocalSeeked}
+                    onError={() => setVideoError(true)}
+                  />
+
+                  <AnimatePresence>
+                    {videoError && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="pointer-events-none absolute inset-0 grid place-items-center bg-black/70 p-6 text-center text-sm text-white"
+                      >
+                        Не удалось загрузить файл. Проверьте, что объект в R2 доступен публично (Public
+                        Access включён для бакета или объекта) и что ссылка указывает на сам видеофайл.
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
+
+                <p className="text-xs text-mist">
+                  Play, pause и перемотка синхронизируются автоматически на обеих сторонах — не нужно жать
+                  play одновременно вручную. Если кто-то отстаёт больше чем на пару секунд (например, после
+                  разрыва соединения), плеер сам подстроит позицию при следующем действии партнёра.
+                </p>
               </div>
-
-              <div className="relative aspect-video w-full overflow-hidden rounded-[var(--season-radius)] border border-line bg-black dark:border-line-dark lg:max-h-[80vh]">
-                <video
-                  ref={videoRef}
-                  src={mediaUrl}
-                  controls
-                  playsInline
-                  preload="metadata"
-                  className="h-full w-full"
-                  onPlay={handleLocalPlay}
-                  onPause={handleLocalPause}
-                  onSeeked={handleLocalSeeked}
-                  onError={() => setVideoError(true)}
-                />
-
-                <AnimatePresence>
-                  {videoError && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="pointer-events-none absolute inset-0 grid place-items-center bg-black/70 p-6 text-center text-sm text-white"
-                    >
-                      Не удалось загрузить файл. Проверьте, что объект в R2 доступен публично (Public
-                      Access включён для бакета или объекта) и что ссылка указывает на сам видеофайл.
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+            ) : (
+              <div className="rounded-[var(--season-radius-sm)] border border-dashed border-line p-10 text-center text-sm text-mist dark:border-line-dark">
+                No film set yet. Paste an R2 video link above to start.
               </div>
+            )}
 
-              <p className="text-xs text-mist">
-                Play, pause и перемотка синхронизируются автоматически на обеих сторонах — не нужно жать
-                play одновременно вручную. Если кто-то отстаёт больше чем на пару секунд (например, после
-                разрыва соединения), плеер сам подстроит позицию при следующем действии партнёра.
-              </p>
+            <div className="lg:sticky lg:top-24">
+              <WatchChat whoAmI={whoAmI} nameA={nameA} nameB={nameB} />
             </div>
-          ) : (
-            <div className="rounded-[var(--season-radius-sm)] border border-dashed border-line p-10 text-center text-sm text-mist dark:border-line-dark">
-              No film set yet. Paste an R2 video link above to start.
-            </div>
-          )}
+          </div>
         </div>
       )}
     </div>
