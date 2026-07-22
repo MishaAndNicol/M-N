@@ -4,11 +4,10 @@ import { Reveal } from "@/components/ui/reveal";
 const CHAPTERS = [
   { n: "01", href: "/about", title: "About us", text: "Who we are, apart from each other." },
   { n: "02", href: "/memories", title: "Memories", text: "Empty tiles, waiting for real ones." },
-  { n: "03", href: "/conversations", title: "Conversations", text: "A few real lines worth keeping." },
-  { n: "04", href: "/music", title: "Music", text: "Songs that already mean something." },
-  { n: "05", href: "/library", title: "Shared library", text: "Books, movies, games, places - as we add them." },
-  { n: "06", href: "/watch", title: "Watch together", text: "Same film, two screens." },
-  { n: "07", href: "/not-yet", title: "Not yet", text: "What hasn't happened. Not sad - just not yet." },
+  { n: "03", href: "/music", title: "Music", text: "Songs that already mean something." },
+  { n: "04", href: "/library", title: "Shared library", text: "Books, movies, games, places - as we add them." },
+  { n: "05", href: "/watch", title: "Watch together", text: "Same film, two screens." },
+  { n: "06", href: "/not-yet", title: "Not yet", text: "What hasn't happened. Not sad - just not yet." },
 ];
 
 export function Chapters() {

@@ -8,7 +8,7 @@ export default function NotYetPage() {
     <div className="pb-32 pt-40">
       <div className="container-page">
         <Reveal>
-          <p className="eyebrow mb-4">Chapter 07</p>
+          <p className="eyebrow mb-4">Chapter 06</p>
           <h1 className="max-w-xl text-balance font-display text-4xl font-light md:text-5xl">
             Not yet. Not sad - just not yet.
           </h1>

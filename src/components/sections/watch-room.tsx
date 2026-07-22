@@ -330,7 +330,8 @@ export function WatchRoom() {
       )}
 
       {whoAmI && (
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_380px] lg:items-start">
+        <div className="space-y-12">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_380px] lg:items-start">
           <div className="space-y-8">
           {/* set / change film */}
           <div className="card-surface p-6">
@@ -453,8 +454,18 @@ export function WatchRoom() {
               </ul>
             </div>
           )}
+          </div>
 
-          {/* player */}
+          {/* live chat - tall, sticky alongside the controls so a film night
+              has somewhere to actually talk */}
+          <div className="lg:sticky lg:top-24">
+            <WatchChat whoAmI={whoAmI} nameA={nameA} nameB={nameB} />
+          </div>
+          </div>
+
+          {/* player - moved below the controls and out of the narrow column
+              so it can run the full page width, sit lower on the page, and
+              actually be big enough to watch comfortably */}
           {mediaUrl ? (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -468,7 +479,7 @@ export function WatchRoom() {
                 </div>
               </div>
 
-              <div className="relative aspect-video w-full overflow-hidden rounded-[var(--season-radius)] border border-line bg-black dark:border-line-dark">
+              <div className="relative aspect-video w-full overflow-hidden rounded-[var(--season-radius)] border border-line bg-black dark:border-line-dark lg:max-h-[80vh]">
                 <video
                   ref={videoRef}
                   src={mediaUrl}
@@ -508,13 +519,6 @@ export function WatchRoom() {
               No film set yet. Paste an R2 video link above to start.
             </div>
           )}
-          </div>
-
-          {/* live chat - tall, sticky alongside the player so a film night
-              has somewhere to actually talk */}
-          <div className="lg:sticky lg:top-24">
-            <WatchChat whoAmI={whoAmI} nameA={nameA} nameB={nameB} />
-          </div>
         </div>
       )}
     </div>
