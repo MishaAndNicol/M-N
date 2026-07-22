@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Film, Link2, Users, ListPlus, Play, Trash2, AlertTriangle, MessageCircle, X } from "lucide-react";
+import { Film, Link2, Users, ListPlus, Play, Trash2, AlertTriangle, MessageCircle, X, Maximize, Minimize } from "lucide-react";
 import {
   doc,
   onSnapshot,
@@ -154,25 +154,28 @@ export function WatchRoom() {
     window.localStorage.setItem(WHOAMI_KEY, who);
   }
 
-  // Browsers put the *element you fullscreen* on screen and nothing else -
-  // so fullscreening <video> directly (which is what its own built-in
-  // fullscreen control does) would hide the chat entirely. We watch for
-  // that and swap it out for our wrapper (`stageRef`) instead, which
-  // contains both the video and the chat overlay, so the fullscreen view
-  // still has a working chat button.
+  // Tracks whether *our* stage wrapper (not the bare <video>) is the
+  // fullscreen element, so the UI (button icon, styling) reflects it.
   useEffect(() => {
     function onFullscreenChange() {
-      const fsEl = document.fullscreenElement;
-      setIsFullscreen(fsEl === stageRef.current);
-      if (fsEl && fsEl === videoRef.current) {
-        document.exitFullscreen().then(() => {
-          stageRef.current?.requestFullscreen().catch(() => {});
-        });
-      }
+      setIsFullscreen(document.fullscreenElement === stageRef.current);
     }
     document.addEventListener("fullscreenchange", onFullscreenChange);
     return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
   }, []);
+
+  // Our own fullscreen control. Calling requestFullscreen() here, directly
+  // inside the click handler, keeps it inside the same user gesture the
+  // browser requires - unlike exiting the video's own fullscreen and then
+  // re-requesting it on the wrapper afterwards, which several browsers
+  // silently refuse once that extra async step has passed.
+  function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      stageRef.current?.requestFullscreen().catch(() => {});
+    }
+  }
 
   // Live subscription to the shared room doc. Falls back to local-only
   // state (same spirit as the guestbook) when Firebase isn't configured -
@@ -504,6 +507,7 @@ export function WatchRoom() {
                     ref={videoRef}
                     src={mediaUrl}
                     controls
+                    controlsList="nofullscreen"
                     playsInline
                     preload="metadata"
                     className="h-full w-full"
@@ -513,21 +517,31 @@ export function WatchRoom() {
                     onError={() => setVideoError(true)}
                   />
 
-                  {/* chat toggle - stays in the same corner of the stage
-                      whether we're in the normal page layout or fullscreen,
-                      since it lives inside the element that gets fullscreened. */}
-                  <button
-                    onClick={() => setShowChat((v) => !v)}
-                    aria-label={showChat ? "Hide chat" : "Show chat"}
-                    className={cn(
-                      "absolute right-3 top-3 z-20 grid h-10 w-10 place-items-center rounded-full backdrop-blur transition-colors",
-                      showChat
-                        ? "bg-thread text-white"
-                        : "bg-black/50 text-white hover:bg-black/70"
-                    )}
-                  >
-                    {showChat ? <X className="h-4.5 w-4.5" /> : <MessageCircle className="h-4.5 w-4.5" />}
-                  </button>
+                  {/* chat + fullscreen toggles - stay in the same corner of
+                      the stage whether we're in the normal page layout or
+                      fullscreen, since they live inside the element that
+                      actually gets fullscreened. */}
+                  <div className="absolute right-3 top-3 z-20 flex items-center gap-2">
+                    <button
+                      onClick={toggleFullscreen}
+                      aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                      className="grid h-10 w-10 place-items-center rounded-full bg-black/50 text-white backdrop-blur transition-colors hover:bg-black/70"
+                    >
+                      {isFullscreen ? <Minimize className="h-4.5 w-4.5" /> : <Maximize className="h-4.5 w-4.5" />}
+                    </button>
+                    <button
+                      onClick={() => setShowChat((v) => !v)}
+                      aria-label={showChat ? "Hide chat" : "Show chat"}
+                      className={cn(
+                        "grid h-10 w-10 place-items-center rounded-full backdrop-blur transition-colors",
+                        showChat
+                          ? "bg-thread text-white"
+                          : "bg-black/50 text-white hover:bg-black/70"
+                      )}
+                    >
+                      {showChat ? <X className="h-4.5 w-4.5" /> : <MessageCircle className="h-4.5 w-4.5" />}
+                    </button>
+                  </div>
 
                   <AnimatePresence>
                     {showChat && (
@@ -561,8 +575,8 @@ export function WatchRoom() {
                 <p className="text-xs text-mist">
                   Play, pause и перемотка синхронизируются автоматически на обеих сторонах — не нужно жать
                   play одновременно вручную. Если кто-то отстаёт больше чем на пару секунд (например, после
-                  разрыва соединения), плеер сам подстроит позицию при следующем действии партнёра. Кнопка
-                  в углу открывает чат поверх видео — и в обычном режиме, и на весь экран.
+                  разрыва соединения), плеер сам подстроит позицию при следующем действии партнёра. Кнопки
+                  в углу — «на весь экран» и чат поверх видео; чат остаётся доступен и в полноэкранном режиме.
                 </p>
               </div>
             ) : (
