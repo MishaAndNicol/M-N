@@ -43,10 +43,15 @@ export function WatchChat({
   whoAmI,
   nameA,
   nameB,
+  variant = "panel",
 }: {
   whoAmI: "a" | "b";
   nameA: string;
   nameB: string;
+  // "panel" - the original fixed-height card, meant to sit in normal page
+  // flow. "overlay" - fills its parent (the video stage) and uses a dark,
+  // translucent surface so it reads well sitting on top of the film.
+  variant?: "panel" | "overlay";
 }) {
   const connected = isFirebaseConfigured;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -120,13 +125,27 @@ export function WatchChat({
     [messages.length]
   );
 
+  const overlay = variant === "overlay";
+
   return (
-    <div className="card-surface flex h-[32rem] flex-col overflow-hidden p-0 lg:h-[70vh] lg:min-h-[560px]">
-      <div className="flex items-center gap-2 border-b border-line px-6 py-5 dark:border-line-dark">
-        <MessageCircle className="h-4 w-4 text-thread" />
+    <div
+      className={cn(
+        "flex flex-col overflow-hidden",
+        overlay
+          ? "h-full border-l border-white/10 bg-black/70 backdrop-blur-md"
+          : "card-surface h-[32rem] p-0 lg:h-[70vh] lg:min-h-[560px]"
+      )}
+    >
+      <div
+        className={cn(
+          "flex items-center gap-2 border-b px-6 py-5",
+          overlay ? "border-white/10" : "border-line dark:border-line-dark"
+        )}
+      >
+        <MessageCircle className={cn("h-4 w-4", overlay ? "text-white" : "text-thread")} />
         <div>
-          <p className="eyebrow !text-sm">Chat</p>
-          <p className="text-xs text-mist">
+          <p className={cn("eyebrow !text-sm", overlay && "!text-white/70")}>Chat</p>
+          <p className={cn("text-xs", overlay ? "text-white/60" : "text-mist")}>
             {connected ? `You, ${myName} - talking with ${otherName}` : `Local preview - talking to yourself as ${myName}`}
           </p>
         </div>
@@ -134,7 +153,7 @@ export function WatchChat({
 
       <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto px-5 py-5">
         {emptyState && (
-          <div className="flex h-full items-center justify-center px-6 text-center text-sm text-mist">
+          <div className={cn("flex h-full items-center justify-center px-6 text-center text-sm", overlay ? "text-white/50" : "text-mist")}>
             No messages yet - say hi while the film loads.
           </div>
         )}
@@ -153,7 +172,9 @@ export function WatchChat({
                     "max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
                     mine
                       ? "rounded-br-sm bg-thread text-white dark:text-black"
-                      : "rounded-bl-sm border border-line bg-white/40 dark:border-line-dark dark:bg-white/[0.04]"
+                      : overlay
+                        ? "rounded-bl-sm border border-white/15 bg-white/10 text-white"
+                        : "rounded-bl-sm border border-line bg-white/40 dark:border-line-dark dark:bg-white/[0.04]"
                   )}
                 >
                   <p className="whitespace-pre-wrap break-words">{m.text}</p>
@@ -169,12 +190,20 @@ export function WatchChat({
         </AnimatePresence>
       </div>
 
-      <form onSubmit={handleSend} className="flex items-center gap-2 border-t border-line p-4 dark:border-line-dark">
+      <form
+        onSubmit={handleSend}
+        className={cn("flex items-center gap-2 border-t p-4", overlay ? "border-white/10" : "border-line dark:border-line-dark")}
+      >
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={`Message ${otherName}...`}
-          className="w-full rounded-full border border-line bg-transparent px-4 py-2.5 text-sm outline-none transition-colors focus:border-thread dark:border-line-dark"
+          className={cn(
+            "w-full rounded-full border bg-transparent px-4 py-2.5 text-sm outline-none transition-colors",
+            overlay
+              ? "border-white/15 text-white placeholder:text-white/40 focus:border-white/40"
+              : "border-line focus:border-thread dark:border-line-dark"
+          )}
         />
         <button
           type="submit"

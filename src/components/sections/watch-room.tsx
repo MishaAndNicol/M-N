@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Film, Link2, Users, ListPlus, Play, Trash2, AlertTriangle } from "lucide-react";
+import { Film, Link2, Users, ListPlus, Play, Trash2, AlertTriangle, MessageCircle, X } from "lucide-react";
 import {
   doc,
   onSnapshot,
@@ -118,8 +118,17 @@ export function WatchRoom() {
   const [bulkAddedCount, setBulkAddedCount] = useState<number | null>(null);
   const [whoAmI, setWhoAmI] = useState<"a" | "b" | null>(null);
   const [videoError, setVideoError] = useState(false);
+  // Chat starts closed - it opens over the player via the toggle button
+  // instead of permanently occupying a column next to the video.
+  const [showChat, setShowChat] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  // Wraps the <video> + chat overlay + toggle button. This, not the
+  // <video> element itself, is what we put into fullscreen - so the
+  // chat and its button stay visible instead of disappearing along
+  // with the rest of the page.
+  const stageRef = useRef<HTMLDivElement>(null);
   // Set right before we programmatically call play()/pause()/seek in
   // response to a remote update, so the resulting native play/pause/seeked
   // events on the <video> element don't get written straight back to
@@ -144,6 +153,26 @@ export function WatchRoom() {
     setWhoAmI(who);
     window.localStorage.setItem(WHOAMI_KEY, who);
   }
+
+  // Browsers put the *element you fullscreen* on screen and nothing else -
+  // so fullscreening <video> directly (which is what its own built-in
+  // fullscreen control does) would hide the chat entirely. We watch for
+  // that and swap it out for our wrapper (`stageRef`) instead, which
+  // contains both the video and the chat overlay, so the fullscreen view
+  // still has a working chat button.
+  useEffect(() => {
+    function onFullscreenChange() {
+      const fsEl = document.fullscreenElement;
+      setIsFullscreen(fsEl === stageRef.current);
+      if (fsEl && fsEl === videoRef.current) {
+        document.exitFullscreen().then(() => {
+          stageRef.current?.requestFullscreen().catch(() => {});
+        });
+      }
+    }
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
 
   // Live subscription to the shared room doc. Falls back to local-only
   // state (same spirit as the guestbook) when Firebase isn't configured -
@@ -442,12 +471,10 @@ export function WatchRoom() {
             </div>
           )}
 
-          {/* player + chat, side by side in the same row so the chat stays
-              level with the screen. Screen takes ~82% of the row and chat
-              a fixed ~18%, so the screen stays big while the chat still
-              gets a stable, comfortable width to read and type in. Extra
-              top margin drops the whole block a bit lower on the page. */}
-          <div className="mt-6 grid grid-cols-1 gap-6 lg:mt-10 lg:grid-cols-[minmax(0,82fr)_minmax(240px,18fr)] lg:items-start">
+          {/* player. Full width now - the chat no longer sits in a
+              permanent side column; it opens over the video via the
+              toggle button instead, in both normal and fullscreen view. */}
+          <div className="mt-6 space-y-4 lg:mt-10">
             {mediaUrl ? (
               <div className="space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -461,7 +488,18 @@ export function WatchRoom() {
                   </div>
                 </div>
 
-                <div className="relative aspect-video w-full overflow-hidden rounded-[var(--season-radius)] border border-line bg-black dark:border-line-dark lg:max-h-[75vh]">
+                {/* stageRef wraps the video, the chat toggle button, and
+                    the chat overlay itself - it's this whole group that
+                    goes fullscreen (see the fullscreenchange effect
+                    above), so the chat stays reachable on the big screen
+                    instead of disappearing along with the rest of the page. */}
+                <div
+                  ref={stageRef}
+                  className={cn(
+                    "relative aspect-video w-full overflow-hidden rounded-[var(--season-radius)] border border-line bg-black dark:border-line-dark lg:max-h-[75vh]",
+                    isFullscreen && "!max-h-none rounded-none border-none"
+                  )}
+                >
                   <video
                     ref={videoRef}
                     src={mediaUrl}
@@ -474,6 +512,36 @@ export function WatchRoom() {
                     onSeeked={handleLocalSeeked}
                     onError={() => setVideoError(true)}
                   />
+
+                  {/* chat toggle - stays in the same corner of the stage
+                      whether we're in the normal page layout or fullscreen,
+                      since it lives inside the element that gets fullscreened. */}
+                  <button
+                    onClick={() => setShowChat((v) => !v)}
+                    aria-label={showChat ? "Hide chat" : "Show chat"}
+                    className={cn(
+                      "absolute right-3 top-3 z-20 grid h-10 w-10 place-items-center rounded-full backdrop-blur transition-colors",
+                      showChat
+                        ? "bg-thread text-white"
+                        : "bg-black/50 text-white hover:bg-black/70"
+                    )}
+                  >
+                    {showChat ? <X className="h-4.5 w-4.5" /> : <MessageCircle className="h-4.5 w-4.5" />}
+                  </button>
+
+                  <AnimatePresence>
+                    {showChat && (
+                      <motion.div
+                        initial={{ x: "100%", opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: "100%", opacity: 0 }}
+                        transition={{ type: "tween", duration: 0.25 }}
+                        className="absolute inset-y-0 right-0 z-10 w-full max-w-sm sm:w-96"
+                      >
+                        <WatchChat whoAmI={whoAmI} nameA={nameA} nameB={nameB} variant="overlay" />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
                   <AnimatePresence>
                     {videoError && (
@@ -493,7 +561,8 @@ export function WatchRoom() {
                 <p className="text-xs text-mist">
                   Play, pause и перемотка синхронизируются автоматически на обеих сторонах — не нужно жать
                   play одновременно вручную. Если кто-то отстаёт больше чем на пару секунд (например, после
-                  разрыва соединения), плеер сам подстроит позицию при следующем действии партнёра.
+                  разрыва соединения), плеер сам подстроит позицию при следующем действии партнёра. Кнопка
+                  в углу открывает чат поверх видео — и в обычном режиме, и на весь экран.
                 </p>
               </div>
             ) : (
@@ -501,10 +570,6 @@ export function WatchRoom() {
                 No film set yet. Paste an R2 video link above to start.
               </div>
             )}
-
-            <div className="lg:sticky lg:top-24">
-              <WatchChat whoAmI={whoAmI} nameA={nameA} nameB={nameB} />
-            </div>
           </div>
         </div>
       )}
