@@ -8,13 +8,13 @@ const REPO_NAME = "M-N";
 // GitHub Actions sets GITHUB_ACTIONS=true automatically during CI builds.
 // Locally (npm run dev / a local npm run build) basePath stays empty so
 // dev mode keeps working normally.
-const isGithubActions = process.env.GITHUB_ACTIONS === "true";
+
 
 const nextConfig: NextConfig = {
   output: "export",
   trailingSlash: true,
-  basePath: isGithubActions ? `/${REPO_NAME}` : "",
-  assetPrefix: isGithubActions ? `/${REPO_NAME}/` : "",
+  basePath: `/${REPO_NAME}`,
+  assetPrefix: `/${REPO_NAME}/`,
   images: {
     unoptimized: true,
     remotePatterns: [{ protocol: "https", hostname: "**" }],
