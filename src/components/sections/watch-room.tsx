@@ -442,12 +442,12 @@ export function WatchRoom() {
             </div>
           )}
 
-          {/* player + chat, side by side in the same row so the chat sits
-              level with the screen and it's easy to watch and type at the
-              same time. Chat's column is narrow (only 320px) so the screen
-              itself keeps almost all of its width and doesn't lose much
-              scale. */}
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px] lg:items-start">
+          {/* player + chat, side by side in the same row so the chat stays
+              level with the screen. Screen takes ~82% of the row and chat
+              a fixed ~18%, so the screen stays big while the chat still
+              gets a stable, comfortable width to read and type in. Extra
+              top margin drops the whole block a bit lower on the page. */}
+          <div className="mt-6 grid grid-cols-1 gap-6 lg:mt-10 lg:grid-cols-[minmax(0,82fr)_minmax(240px,18fr)] lg:items-start">
             {mediaUrl ? (
               <div className="space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -461,7 +461,7 @@ export function WatchRoom() {
                   </div>
                 </div>
 
-                <div className="relative aspect-video w-full overflow-hidden rounded-[var(--season-radius)] border border-line bg-black dark:border-line-dark lg:max-h-[70vh]">
+                <div className="relative aspect-video w-full overflow-hidden rounded-[var(--season-radius)] border border-line bg-black dark:border-line-dark lg:max-h-[75vh]">
                   <video
                     ref={videoRef}
                     src={mediaUrl}

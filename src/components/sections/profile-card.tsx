@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { MapPin, Languages, GraduationCap } from "lucide-react";
+import { withBasePath } from "@/lib/base-path";
 
 type Person = {
   name: string;
@@ -29,7 +30,7 @@ export function ProfileCard({ person, delay = 0 }: { person: Person; delay?: num
     >
       <div className="relative aspect-[4/5] overflow-hidden bg-line dark:bg-line-dark">
         <Image
-          src={person.photo}
+          src={withBasePath(person.photo)}
           alt={person.name}
           fill
           sizes="(max-width: 768px) 100vw, 50vw"
