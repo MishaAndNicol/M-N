@@ -2,7 +2,22 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Film, Link2, Users, ListPlus, Play, Trash2, AlertTriangle, MessageCircle, X, Maximize, Minimize } from "lucide-react";
+import {
+  Film,
+  Link2,
+  Users,
+  ListPlus,
+  Play,
+  Trash2,
+  AlertTriangle,
+  MessageCircle,
+  X,
+  Maximize,
+  Minimize,
+  FolderPlus,
+  Folder,
+  SkipForward,
+} from "lucide-react";
 import {
   doc,
   onSnapshot,
@@ -15,15 +30,27 @@ import { resolveVideoUrl, hasR2BaseUrl } from "@/lib/r2";
 import { site } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
 import { WatchChat } from "@/components/sections/watch-chat";
+import { useUnreadWatchChatCount } from "@/lib/watch-chat";
 
 // A single entry in the shared playlist - just enough to show a title in
 // the list and re-hydrate the player when picked. `videoUrl` is always a
 // fully-resolved https:// URL (resolved once, at add-time, via
 // resolveVideoUrl) so playback never depends on env config changing later.
+// `sectionId` groups it under one of `RoomState.sections` below - `null`
+// means it sits in the unsorted "No section" group.
 type Episode = {
   id: string;
   title: string;
   videoUrl: string;
+  sectionId: string | null;
+};
+
+// A named grouping for the playlist - "Season 1", "Movies", whatever the
+// two of them want to call it. Just a label; the episodes themselves carry
+// the `sectionId` that puts them under it.
+type Section = {
+  id: string;
+  title: string;
 };
 
 // Firestore doc shape - single shared "room" document. Two people only, so
@@ -43,6 +70,7 @@ type RoomState = {
   syncBy: string | null;
   syncUpdatedAt: Timestamp | null;
   playlist: Episode[];
+  sections: Section[];
 };
 
 const EMPTY_ROOM: RoomState = {
@@ -54,6 +82,7 @@ const EMPTY_ROOM: RoomState = {
   syncBy: null,
   syncUpdatedAt: null,
   playlist: [],
+  sections: [],
 };
 
 const ROOM_PATH = ["watchRoom", "room"] as const;
@@ -67,7 +96,11 @@ const RESYNC_THRESHOLD_SECONDS = 1.5;
 // anything with the link at the end of the line after a separator. Lines
 // that don't resolve to a playable URL are reported back as errors instead
 // of silently dropped.
-function parseBulkLinks(text: string, startIndex: number): { episodes: Episode[]; errors: string[] } {
+function parseBulkLinks(
+  text: string,
+  startIndex: number,
+  sectionId: string | null
+): { episodes: Episode[]; errors: string[] } {
   const lines = text
     .split("\n")
     .map((l) => l.trim())
@@ -93,6 +126,7 @@ function parseBulkLinks(text: string, startIndex: number): { episodes: Episode[]
       id: `${Date.now()}-${startIndex + i}-${Math.random().toString(36).slice(2, 7)}`,
       title: title || `Серия ${startIndex + episodes.length + 1}`,
       videoUrl,
+      sectionId,
     });
   });
 
@@ -116,7 +150,12 @@ export function WatchRoom() {
   const [bulkInput, setBulkInput] = useState("");
   const [bulkErrors, setBulkErrors] = useState<string[]>([]);
   const [bulkAddedCount, setBulkAddedCount] = useState<number | null>(null);
+  const [sectionTitleInput, setSectionTitleInput] = useState("");
+  // Which section new episodes (single "Set" or bulk-add) get filed under.
+  // "" is the sentinel for "no section" since <select> values are strings.
+  const [targetSectionId, setTargetSectionId] = useState<string>("");
   const [whoAmI, setWhoAmI] = useState<"a" | "b" | null>(null);
+  const unreadChatCount = useUnreadWatchChatCount();
   const [videoError, setVideoError] = useState(false);
   // Chat starts closed - it opens over the player via the toggle button
   // instead of permanently occupying a column next to the video.
@@ -214,21 +253,31 @@ export function WatchRoom() {
     }
     setLinkError(null);
     setVideoError(false);
+    const title = titleInput.trim() || "Untitled";
+    const sectionId = targetSectionId || null;
+    // File it into the playlist too (under the chosen section) instead of
+    // only setting it as "now playing" - otherwise anything added this way
+    // would never show up grouped, or be reachable by "next episode".
+    const alreadyInPlaylist = room.playlist.some((ep) => ep.videoUrl === videoUrl);
+    const nextPlaylist = alreadyInPlaylist
+      ? room.playlist
+      : [...room.playlist, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, title, videoUrl, sectionId }];
     writeRoom({
       videoUrl,
-      title: titleInput.trim() || "Untitled",
+      title,
       setBy: myName,
       playing: false,
       positionSeconds: 0,
       syncBy: myName,
       syncUpdatedAt: connected ? (serverTimestamp() as unknown as Timestamp) : (new Date() as unknown as Timestamp),
+      playlist: nextPlaylist,
     });
     setLinkInput("");
     setTitleInput("");
   }
 
   function handleBulkAdd() {
-    const { episodes, errors } = parseBulkLinks(bulkInput, room.playlist.length);
+    const { episodes, errors } = parseBulkLinks(bulkInput, room.playlist.length, targetSectionId || null);
     setBulkErrors(errors);
     if (episodes.length) {
       writeRoom({ playlist: [...room.playlist, ...episodes] });
@@ -238,13 +287,33 @@ export function WatchRoom() {
     }
   }
 
-  function playEpisode(ep: Episode) {
+  function addSection() {
+    const title = sectionTitleInput.trim();
+    if (!title) return;
+    const section: Section = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, title };
+    writeRoom({ sections: [...room.sections, section] });
+    setSectionTitleInput("");
+    setTargetSectionId(section.id);
+  }
+
+  // Removing a section only removes the label - its episodes fall back to
+  // "No section" instead of being deleted, so nothing in the playlist is
+  // ever lost just from tidying up the grouping.
+  function deleteSection(id: string) {
+    writeRoom({
+      sections: room.sections.filter((s) => s.id !== id),
+      playlist: room.playlist.map((ep) => (ep.sectionId === id ? { ...ep, sectionId: null } : ep)),
+    });
+    if (targetSectionId === id) setTargetSectionId("");
+  }
+
+  function playEpisode(ep: Episode, opts?: { autoplay?: boolean }) {
     setVideoError(false);
     writeRoom({
       videoUrl: ep.videoUrl,
       title: ep.title,
       setBy: myName,
-      playing: false,
+      playing: Boolean(opts?.autoplay),
       positionSeconds: 0,
       syncBy: myName,
       syncUpdatedAt: connected ? (serverTimestamp() as unknown as Timestamp) : (new Date() as unknown as Timestamp),
@@ -256,6 +325,65 @@ export function WatchRoom() {
   }
 
   const mediaUrl = useMemo(() => (room.videoUrl ? room.videoUrl : null), [room.videoUrl]);
+
+  // Playback order for "next episode": section by section, in the order
+  // sections were created, then anything left ungrouped at the end -
+  // rather than raw playlist-array order, which is just add order and can
+  // jump between sections that were built up over time.
+  const orderedEpisodes = useMemo(() => {
+    const bySection = new Map<string, Episode[]>();
+    const noSection: Episode[] = [];
+    room.playlist.forEach((ep) => {
+      if (ep.sectionId) {
+        const arr = bySection.get(ep.sectionId) ?? [];
+        arr.push(ep);
+        bySection.set(ep.sectionId, arr);
+      } else {
+        noSection.push(ep);
+      }
+    });
+    const ordered: Episode[] = [];
+    room.sections.forEach((s) => ordered.push(...(bySection.get(s.id) ?? [])));
+    ordered.push(...noSection);
+    return ordered;
+  }, [room.playlist, room.sections]);
+
+  const currentEpisodeIndex = useMemo(
+    () => orderedEpisodes.findIndex((ep) => ep.videoUrl === room.videoUrl),
+    [orderedEpisodes, room.videoUrl]
+  );
+  const nextEpisode =
+    currentEpisodeIndex !== -1 && currentEpisodeIndex + 1 < orderedEpisodes.length
+      ? orderedEpisodes[currentEpisodeIndex + 1]
+      : null;
+
+  function playNextEpisode(opts?: { autoplay?: boolean }) {
+    if (!nextEpisode) return;
+    playEpisode(nextEpisode, opts);
+  }
+
+  // The side that triggers a videoUrl change (manual pick, "next episode"
+  // button, or auto-advance on end) is the one whose <video> element needs
+  // to actually call play() for an autoplay - the other side picks it up
+  // through the normal remote-sync effect below.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !room.videoUrl) return;
+    if (room.syncBy !== myName) return;
+    if (room.playing) {
+      video.play().catch(() => setVideoError(true));
+    }
+    // Only re-run when the video actually changes - room.playing changes
+    // are already handled by handleLocalPlay/handleLocalPause.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room.videoUrl]);
+
+  function handleVideoEnded() {
+    if (applyingRemoteRef.current) return;
+    if (nextEpisode) {
+      playNextEpisode({ autoplay: true });
+    }
+  }
 
   // Reacts to playback state written by the *other* side. Our own writes
   // come back through this same listener (Firestore doesn't distinguish
@@ -395,6 +523,46 @@ export function WatchRoom() {
             {linkError && <p className="mt-3 text-xs text-red-500">{linkError}</p>}
           </div>
 
+          {/* sections - group the playlist instead of one long mixed list */}
+          <div className="card-surface p-6">
+            <p className="eyebrow mb-4 flex items-center gap-2">
+              <FolderPlus className="h-3.5 w-3.5" /> Sections
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <input
+                value={sectionTitleInput}
+                onChange={(e) => setSectionTitleInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addSection()}
+                placeholder="e.g. Season 1, Movies..."
+                className="min-w-[12rem] flex-1 rounded-full border border-line bg-transparent px-4 py-2 text-sm outline-none transition-colors focus:border-thread dark:border-line-dark"
+              />
+              <button
+                onClick={addSection}
+                disabled={!sectionTitleInput.trim()}
+                className="rounded-full bg-thread px-5 py-2 text-sm text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+              >
+                Add section
+              </button>
+            </div>
+            {room.sections.length > 0 && (
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className="text-xs text-mist">Adding new episodes to:</span>
+                <select
+                  value={targetSectionId}
+                  onChange={(e) => setTargetSectionId(e.target.value)}
+                  className="rounded-full border border-line bg-transparent px-3 py-1.5 text-xs outline-none transition-colors focus:border-thread dark:border-line-dark"
+                >
+                  <option value="">No section</option>
+                  {room.sections.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
           {/* bulk-add many episodes at once */}
           <div className="card-surface p-6">
             <p className="eyebrow mb-4 flex items-center gap-2">
@@ -430,47 +598,83 @@ export function WatchRoom() {
             )}
           </div>
 
-          {/* the playlist itself */}
+          {/* the playlist itself, grouped into sections */}
           {room.playlist.length > 0 && (
-            <div className="card-surface p-6">
-              <p className="eyebrow mb-4">Playlist ({room.playlist.length})</p>
-              <ul className="space-y-2">
-                {room.playlist.map((ep, i) => {
-                  const isPlaying = ep.videoUrl === room.videoUrl;
-                  return (
-                    <li
-                      key={ep.id}
-                      className={cn(
-                        "flex items-center justify-between gap-3 rounded-full border px-4 py-2 text-sm transition-colors",
-                        isPlaying
-                          ? "border-thread bg-thread/[0.06] text-thread"
-                          : "border-line dark:border-line-dark"
-                      )}
-                    >
-                      <span className="flex min-w-0 items-center gap-2">
-                        <span className="shrink-0 text-xs text-mist">{i + 1}.</span>
-                        <span className="truncate">{ep.title}</span>
-                      </span>
-                      <span className="flex shrink-0 items-center gap-1.5">
+            <div className="space-y-4">
+              {(() => {
+                const noSectionId = "__none__";
+                const groups = new Map<string, Episode[]>();
+                room.playlist.forEach((ep) => {
+                  const key = ep.sectionId ?? noSectionId;
+                  const arr = groups.get(key) ?? [];
+                  arr.push(ep);
+                  groups.set(key, arr);
+                });
+                const groupList: { id: string; title: string; episodes: Episode[] }[] = [
+                  ...room.sections
+                    .filter((s) => groups.has(s.id))
+                    .map((s) => ({ id: s.id, title: s.title, episodes: groups.get(s.id)! })),
+                  ...(groups.has(noSectionId)
+                    ? [{ id: noSectionId, title: "No section", episodes: groups.get(noSectionId)! }]
+                    : []),
+                ];
+
+                return groupList.map((group) => (
+                  <div key={group.id} className="card-surface p-6">
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                      <p className="eyebrow flex items-center gap-2">
+                        <Folder className="h-3.5 w-3.5" /> {group.title} ({group.episodes.length})
+                      </p>
+                      {group.id !== noSectionId && (
                         <button
-                          onClick={() => playEpisode(ep)}
-                          title="Play this episode"
-                          className="rounded-full p-1.5 transition-colors hover:bg-thread/10 hover:text-thread"
-                        >
-                          <Play className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() => removeEpisode(ep.id)}
-                          title="Remove from playlist"
-                          className="rounded-full p-1.5 transition-colors hover:bg-red-500/10 hover:text-red-500"
+                          onClick={() => deleteSection(group.id)}
+                          title="Delete section (keeps its episodes, ungrouped)"
+                          className="rounded-full p-1.5 text-mist transition-colors hover:bg-red-500/10 hover:text-red-500"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
+                      )}
+                    </div>
+                    <ul className="space-y-2">
+                      {group.episodes.map((ep, i) => {
+                        const isPlaying = ep.videoUrl === room.videoUrl;
+                        return (
+                          <li
+                            key={ep.id}
+                            className={cn(
+                              "flex items-center justify-between gap-3 rounded-full border px-4 py-2 text-sm transition-colors",
+                              isPlaying
+                                ? "border-thread bg-thread/[0.06] text-thread"
+                                : "border-line dark:border-line-dark"
+                            )}
+                          >
+                            <span className="flex min-w-0 items-center gap-2">
+                              <span className="shrink-0 text-xs text-mist">{i + 1}.</span>
+                              <span className="truncate">{ep.title}</span>
+                            </span>
+                            <span className="flex shrink-0 items-center gap-1.5">
+                              <button
+                                onClick={() => playEpisode(ep, { autoplay: room.playing })}
+                                title="Play this episode"
+                                className="rounded-full p-1.5 transition-colors hover:bg-thread/10 hover:text-thread"
+                              >
+                                <Play className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => removeEpisode(ep.id)}
+                                title="Remove from playlist"
+                                className="rounded-full p-1.5 transition-colors hover:bg-red-500/10 hover:text-red-500"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ));
+              })()}
             </div>
           )}
 
@@ -485,9 +689,20 @@ export function WatchRoom() {
                     <p className="eyebrow">Now playing</p>
                     <h3 className="font-display text-xl">{room.title || "Untitled"}</h3>
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs text-mist">
-                    <Users className="h-3.5 w-3.5" />
-                    {room.syncBy ? `последним управлял: ${room.syncBy}` : "готово к синхронному просмотру"}
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5 text-xs text-mist">
+                      <Users className="h-3.5 w-3.5" />
+                      {room.syncBy ? `последним управлял: ${room.syncBy}` : "готово к синхронному просмотру"}
+                    </div>
+                    {nextEpisode && (
+                      <button
+                        onClick={() => playNextEpisode({ autoplay: room.playing })}
+                        title={`Next: ${nextEpisode.title}`}
+                        className="flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs transition-colors hover:border-thread hover:text-thread dark:border-line-dark"
+                      >
+                        <SkipForward className="h-3.5 w-3.5" /> Next episode
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -514,6 +729,7 @@ export function WatchRoom() {
                     onPlay={handleLocalPlay}
                     onPause={handleLocalPause}
                     onSeeked={handleLocalSeeked}
+                    onEnded={handleVideoEnded}
                     onError={() => setVideoError(true)}
                   />
 
@@ -533,13 +749,18 @@ export function WatchRoom() {
                       onClick={() => setShowChat((v) => !v)}
                       aria-label={showChat ? "Hide chat" : "Show chat"}
                       className={cn(
-                        "grid h-10 w-10 place-items-center rounded-full backdrop-blur transition-colors",
+                        "relative grid h-10 w-10 place-items-center rounded-full backdrop-blur transition-colors",
                         showChat
                           ? "bg-thread text-white"
                           : "bg-black/50 text-white hover:bg-black/70"
                       )}
                     >
                       {showChat ? <X className="h-4.5 w-4.5" /> : <MessageCircle className="h-4.5 w-4.5" />}
+                      {!showChat && unreadChatCount > 0 && (
+                        <span className="absolute -right-1 -top-1 grid h-4.5 min-w-[1.125rem] place-items-center rounded-full bg-red-500 px-1 text-[10px] font-medium leading-none text-white">
+                          {unreadChatCount > 9 ? "9+" : unreadChatCount}
+                        </span>
+                      )}
                     </button>
                   </div>
 

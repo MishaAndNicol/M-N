@@ -2,29 +2,41 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageCircle, Send } from "lucide-react";
+import { MessageCircle, Send, Pencil, Trash2, Check, X as XIcon } from "lucide-react";
 import {
   addDoc,
   collection,
+  deleteDoc,
+  doc,
+  getDocs,
   limit,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
+  updateDoc,
+  writeBatch,
   type Timestamp,
 } from "firebase/firestore";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
 import { cn } from "@/lib/utils";
+import { CHAT_COLLECTION, markWatchChatRead } from "@/lib/watch-chat";
 
 type ChatMessage = {
   id: string;
   text: string;
   who: "a" | "b";
   createdAt: Timestamp | null;
+  edited?: boolean;
 };
 
-const CHAT_COLLECTION = "watchRoomChat";
-const MAX_MESSAGES = 300;
+// Firestore's `limit()` just takes the first N docs matching the sort
+// order - it does NOT mean "most recent N". The query below sorts newest
+// first specifically so this cap keeps the *latest* messages instead of
+// silently freezing the chat once the older messages fill it up. Two
+// people won't get anywhere near this in practice; it exists only as a
+// sanity ceiling, not a real limit.
+const MAX_MESSAGES = 2000;
 
 function formatTime(ts: Timestamp | null): string {
   if (!ts) return "";
@@ -57,6 +69,9 @@ export function WatchChat({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
+  const [confirmClear, setConfirmClear] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
 
   const myName = whoAmI === "a" ? nameA : nameB;
@@ -66,18 +81,23 @@ export function WatchChat({
     if (!connected) return;
     const db = getDb();
     if (!db) return;
-    const q = query(collection(db, CHAT_COLLECTION), orderBy("createdAt", "asc"), limit(MAX_MESSAGES));
+    // Sorted newest-first so the cap above keeps the latest conversation;
+    // reversed back to chronological order just for display.
+    const q = query(collection(db, CHAT_COLLECTION), orderBy("createdAt", "desc"), limit(MAX_MESSAGES));
     const unsub = onSnapshot(q, (snap) => {
       setMessages(
-        snap.docs.map((d) => {
-          const data = d.data() as Partial<ChatMessage>;
-          return {
-            id: d.id,
-            text: data.text ?? "",
-            who: data.who === "b" ? "b" : "a",
-            createdAt: (data.createdAt as Timestamp | undefined) ?? null,
-          };
-        })
+        snap.docs
+          .map((d) => {
+            const data = d.data() as Partial<ChatMessage>;
+            return {
+              id: d.id,
+              text: data.text ?? "",
+              who: data.who === "b" ? "b" : "a",
+              createdAt: (data.createdAt as Timestamp | undefined) ?? null,
+              edited: Boolean(data.edited),
+            } satisfies ChatMessage;
+          })
+          .reverse()
       );
     });
     return () => unsub();
@@ -88,6 +108,14 @@ export function WatchChat({
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages.length]);
+
+  // This component only exists in the DOM while the person is actually
+  // looking at the chat - always-on for the "panel" layout, and only while
+  // the overlay is toggled open in the room. So mounted + new message =
+  // seen; mark it read here rather than waiting for an explicit click.
+  useEffect(() => {
+    markWatchChatRead(whoAmI);
+  }, [whoAmI, messages.length]);
 
   async function handleSend(e: FormEvent) {
     e.preventDefault();
@@ -120,6 +148,66 @@ export function WatchChat({
     }
   }
 
+  function startEdit(m: ChatMessage) {
+    setEditingId(m.id);
+    setEditDraft(m.text);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditDraft("");
+  }
+
+  async function saveEdit(id: string) {
+    const text = editDraft.trim();
+    if (!text) return;
+    if (!connected) {
+      setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, text, edited: true } : m)));
+      cancelEdit();
+      return;
+    }
+    const db = getDb();
+    if (!db) return;
+    await updateDoc(doc(db, CHAT_COLLECTION, id), { text, edited: true });
+    cancelEdit();
+  }
+
+  async function handleDelete(id: string) {
+    if (!connected) {
+      setMessages((prev) => prev.filter((m) => m.id !== id));
+      return;
+    }
+    const db = getDb();
+    if (!db) return;
+    await deleteDoc(doc(db, CHAT_COLLECTION, id));
+  }
+
+  // Two-step confirm (click once to arm, click again to actually clear)
+  // instead of a browser confirm() dialog, so it fits the rest of the UI.
+  async function handleClearChat() {
+    if (!confirmClear) {
+      setConfirmClear(true);
+      setTimeout(() => setConfirmClear(false), 4000);
+      return;
+    }
+    setConfirmClear(false);
+    if (!connected) {
+      setMessages([]);
+      return;
+    }
+    const db = getDb();
+    if (!db) return;
+    const snap = await getDocs(collection(db, CHAT_COLLECTION));
+    // Firestore batches top out at 500 writes; chunk just in case a chat
+    // ever genuinely grows past that.
+    const docs = snap.docs;
+    for (let i = 0; i < docs.length; i += 450) {
+      const batch = writeBatch(db);
+      docs.slice(i, i + 450).forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    }
+  }
+
   const emptyState = useMemo(
     () => messages.length === 0,
     [messages.length]
@@ -138,17 +226,35 @@ export function WatchChat({
     >
       <div
         className={cn(
-          "flex items-center gap-2 border-b px-6 py-5",
+          "flex items-center justify-between gap-2 border-b px-6 py-5",
           overlay ? "border-white/10" : "border-line dark:border-line-dark"
         )}
       >
-        <MessageCircle className={cn("h-4 w-4", overlay ? "text-white" : "text-thread")} />
-        <div>
-          <p className={cn("eyebrow !text-sm", overlay && "!text-white/70")}>Chat</p>
-          <p className={cn("text-xs", overlay ? "text-white/60" : "text-mist")}>
-            {connected ? `You, ${myName} - talking with ${otherName}` : `Local preview - talking to yourself as ${myName}`}
-          </p>
+        <div className="flex items-center gap-2">
+          <MessageCircle className={cn("h-4 w-4", overlay ? "text-white" : "text-thread")} />
+          <div>
+            <p className={cn("eyebrow !text-sm", overlay && "!text-white/70")}>Chat</p>
+            <p className={cn("text-xs", overlay ? "text-white/60" : "text-mist")}>
+              {connected ? `You, ${myName} - talking with ${otherName}` : `Local preview - talking to yourself as ${myName}`}
+            </p>
+          </div>
         </div>
+        {messages.length > 0 && (
+          <button
+            onClick={handleClearChat}
+            title="Clear entire chat"
+            className={cn(
+              "shrink-0 rounded-full px-3 py-1.5 text-[11px] transition-colors",
+              confirmClear
+                ? "bg-red-500 text-white"
+                : overlay
+                  ? "text-white/50 hover:bg-white/10 hover:text-white"
+                  : "text-mist hover:bg-red-500/10 hover:text-red-500"
+            )}
+          >
+            {confirmClear ? "Clear all - confirm?" : "Clear chat"}
+          </button>
+        )}
       </div>
 
       <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto px-5 py-5">
@@ -160,13 +266,40 @@ export function WatchChat({
         <AnimatePresence initial={false}>
           {messages.map((m) => {
             const mine = m.who === whoAmI;
+            const isEditing = editingId === m.id;
             return (
               <motion.div
                 key={m.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={cn("flex", mine ? "justify-end" : "justify-start")}
+                exit={{ opacity: 0, y: -4 }}
+                className={cn("group flex items-end gap-1.5", mine ? "justify-end" : "justify-start")}
               >
+                {mine && !isEditing && (
+                  <span className="mb-1 flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                    <button
+                      onClick={() => startEdit(m)}
+                      title="Edit message"
+                      className={cn(
+                        "grid h-6 w-6 place-items-center rounded-full transition-colors",
+                        overlay ? "text-white/50 hover:bg-white/10 hover:text-white" : "text-mist hover:bg-thread/10 hover:text-thread"
+                      )}
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(m.id)}
+                      title="Delete message"
+                      className={cn(
+                        "grid h-6 w-6 place-items-center rounded-full transition-colors",
+                        overlay ? "text-white/50 hover:bg-red-500/20 hover:text-red-300" : "text-mist hover:bg-red-500/10 hover:text-red-500"
+                      )}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </span>
+                )}
+
                 <div
                   className={cn(
                     "max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
@@ -177,11 +310,35 @@ export function WatchChat({
                         : "rounded-bl-sm border border-line bg-white/40 dark:border-line-dark dark:bg-white/[0.04]"
                   )}
                 >
-                  <p className="whitespace-pre-wrap break-words">{m.text}</p>
-                  {m.createdAt && (
-                    <p className={cn("mt-1 text-[10px] opacity-60", mine ? "text-right" : "text-left")}>
-                      {formatTime(m.createdAt)}
-                    </p>
+                  {isEditing ? (
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        autoFocus
+                        value={editDraft}
+                        onChange={(e) => setEditDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveEdit(m.id);
+                          if (e.key === "Escape") cancelEdit();
+                        }}
+                        className="w-full min-w-[10rem] rounded-full border border-white/30 bg-transparent px-3 py-1 text-sm text-inherit outline-none"
+                      />
+                      <button onClick={() => saveEdit(m.id)} title="Save" className="grid h-6 w-6 shrink-0 place-items-center rounded-full hover:bg-white/20">
+                        <Check className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={cancelEdit} title="Cancel" className="grid h-6 w-6 shrink-0 place-items-center rounded-full hover:bg-white/20">
+                        <XIcon className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="whitespace-pre-wrap break-words">{m.text}</p>
+                      {(m.createdAt || m.edited) && (
+                        <p className={cn("mt-1 text-[10px] opacity-60", mine ? "text-right" : "text-left")}>
+                          {formatTime(m.createdAt)}
+                          {m.edited ? " · edited" : ""}
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               </motion.div>
