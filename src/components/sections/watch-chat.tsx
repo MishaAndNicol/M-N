@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageCircle, Send, Pencil, Trash2, Check, X as XIcon } from "lucide-react";
+import { Send, Pencil, Trash2, Check, X as XIcon } from "lucide-react";
 import {
   addDoc,
   collection,
@@ -20,7 +21,9 @@ import {
 } from "firebase/firestore";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
 import { cn } from "@/lib/utils";
+import { withBasePath } from "@/lib/base-path";
 import { CHAT_COLLECTION, markWatchChatRead } from "@/lib/watch-chat";
+import { useTypingWriter, usePartnerPresence } from "@/lib/presence";
 
 type ChatMessage = {
   id: string;
@@ -46,6 +49,30 @@ function formatTime(ts: Timestamp | null): string {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+// Small round avatar - falls back to an initial-letter circle when no
+// photo is configured, so the layout doesn't depend on both people having
+// uploaded one.
+function Avatar({ name, photo, size = 28 }: { name: string; photo?: string; size?: number }) {
+  if (photo) {
+    return (
+      <span
+        className="relative block shrink-0 overflow-hidden rounded-full ring-1 ring-white/20"
+        style={{ width: size, height: size }}
+      >
+        <Image src={withBasePath(photo)} alt={name} fill sizes={`${size}px`} className="object-cover" />
+      </span>
+    );
+  }
+  return (
+    <span
+      className="grid shrink-0 place-items-center rounded-full bg-thread/20 text-[10px] font-medium text-thread"
+      style={{ width: size, height: size }}
+    >
+      {name.slice(0, 1).toUpperCase()}
+    </span>
+  );
+}
+
 // A dedicated live chat for the watch room - separate from the shared
 // playback state in watch-room.tsx, but rendered alongside it so a film
 // night has somewhere to actually talk. Same Firestore-optional pattern
@@ -55,11 +82,15 @@ export function WatchChat({
   whoAmI,
   nameA,
   nameB,
+  photoA,
+  photoB,
   variant = "panel",
 }: {
   whoAmI: "a" | "b";
   nameA: string;
   nameB: string;
+  photoA?: string;
+  photoB?: string;
   // "panel" - the original fixed-height card, meant to sit in normal page
   // flow. "overlay" - fills its parent (the video stage) and uses a dark,
   // translucent surface so it reads well sitting on top of the film.
@@ -73,9 +104,13 @@ export function WatchChat({
   const [editDraft, setEditDraft] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+  const { notifyTyping, stopTyping } = useTypingWriter(whoAmI);
+  const partnerPresence = usePartnerPresence(whoAmI);
 
   const myName = whoAmI === "a" ? nameA : nameB;
   const otherName = whoAmI === "a" ? nameB : nameA;
+  const myPhoto = whoAmI === "a" ? photoA : photoB;
+  const otherPhoto = whoAmI === "a" ? photoB : photoA;
 
   useEffect(() => {
     if (!connected) return;
@@ -121,6 +156,7 @@ export function WatchChat({
     e.preventDefault();
     const text = draft.trim();
     if (!text) return;
+    stopTyping();
 
     if (!connected) {
       // Local-only preview: message just appears in this browser tab so
@@ -230,31 +266,48 @@ export function WatchChat({
           overlay ? "border-white/10" : "border-line dark:border-line-dark"
         )}
       >
-        <div className="flex items-center gap-2">
-          <MessageCircle className={cn("h-4 w-4", overlay ? "text-white" : "text-thread")} />
-          <div>
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="relative shrink-0">
+            <Avatar name={otherName} photo={otherPhoto} size={32} />
+            {connected && (
+              <span
+                className={cn(
+                  "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2",
+                  overlay ? "ring-black/70" : "ring-paper dark:ring-void",
+                  partnerPresence.online ? "bg-emerald-500" : "bg-mist/50"
+                )}
+              />
+            )}
+          </span>
+          <div className="min-w-0">
             <p className={cn("eyebrow !text-sm", overlay && "!text-white/70")}>Chat</p>
-            <p className={cn("text-xs", overlay ? "text-white/60" : "text-mist")}>
-              {connected ? `You, ${myName} - talking with ${otherName}` : `Local preview - talking to yourself as ${myName}`}
+            <p className={cn("truncate text-xs", overlay ? "text-white/60" : "text-mist")}>
+              {!connected
+                ? `Local preview - talking to yourself as ${myName}`
+                : partnerPresence.typing
+                  ? `${otherName} is typing...`
+                  : partnerPresence.online
+                    ? `${otherName} is online`
+                    : `You, ${myName} - talking with ${otherName}`}
             </p>
           </div>
         </div>
-        {messages.length > 0 && (
-          <button
-            onClick={handleClearChat}
-            title="Clear entire chat"
-            className={cn(
-              "shrink-0 rounded-full px-3 py-1.5 text-[11px] transition-colors",
-              confirmClear
-                ? "bg-red-500 text-white"
-                : overlay
-                  ? "text-white/50 hover:bg-white/10 hover:text-white"
-                  : "text-mist hover:bg-red-500/10 hover:text-red-500"
-            )}
-          >
-            {confirmClear ? "Clear all - confirm?" : "Clear chat"}
-          </button>
-        )}
+        <button
+          onClick={handleClearChat}
+          disabled={messages.length === 0}
+          title="Clear entire chat"
+          className={cn(
+            "flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+            confirmClear
+              ? "border-red-500 bg-red-500 text-white"
+              : overlay
+                ? "border-white/20 text-white/70 hover:border-red-400/60 hover:bg-red-500/10 hover:text-red-300"
+                : "border-line text-mist hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-500 dark:border-line-dark"
+          )}
+        >
+          <Trash2 className="h-3 w-3" />
+          {confirmClear ? "Confirm clear" : "Clear chat"}
+        </button>
       </div>
 
       <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto px-5 py-5">
@@ -275,6 +328,8 @@ export function WatchChat({
                 exit={{ opacity: 0, y: -4 }}
                 className={cn("group flex items-end gap-1.5", mine ? "justify-end" : "justify-start")}
               >
+                {!mine && <Avatar name={otherName} photo={otherPhoto} size={22} />}
+
                 {mine && !isEditing && (
                   <span className="mb-1 flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                     <button
@@ -341,6 +396,7 @@ export function WatchChat({
                     </>
                   )}
                 </div>
+                {mine && <Avatar name={myName} photo={myPhoto} size={22} />}
               </motion.div>
             );
           })}
@@ -353,7 +409,11 @@ export function WatchChat({
       >
         <input
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            if (e.target.value.trim()) notifyTyping();
+            else stopTyping();
+          }}
           placeholder={`Message ${otherName}...`}
           className={cn(
             "w-full rounded-full border bg-transparent px-4 py-2.5 text-sm outline-none transition-colors",
