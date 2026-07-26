@@ -23,7 +23,7 @@ import { getDb, isFirebaseConfigured } from "@/lib/firebase";
 import { cn } from "@/lib/utils";
 import { withBasePath } from "@/lib/base-path";
 import { CHAT_COLLECTION, markWatchChatRead } from "@/lib/watch-chat";
-import { useTypingWriter, usePartnerPresence } from "@/lib/presence";
+import { useTypingWriter } from "@/lib/presence";
 
 type ChatMessage = {
   id: string;
@@ -107,7 +107,6 @@ export function WatchChat({
   const [confirmClear, setConfirmClear] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const { notifyTyping, stopTyping } = useTypingWriter(whoAmI);
-  const partnerPresence = usePartnerPresence(whoAmI);
 
   const myName = whoAmI === "a" ? nameA : nameB;
   const otherName = whoAmI === "a" ? nameB : nameA;
@@ -269,28 +268,13 @@ export function WatchChat({
         )}
       >
         <div className="flex min-w-0 items-center gap-2.5">
-          <span className="relative shrink-0">
-            <Avatar name={otherName} photo={otherPhoto} size={32} />
-            {connected && (
-              <span
-                className={cn(
-                  "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2",
-                  overlay ? "ring-black/70" : "ring-paper dark:ring-void",
-                  partnerPresence.online ? "bg-emerald-500" : "bg-mist/50"
-                )}
-              />
-            )}
-          </span>
+          <Avatar name={otherName} photo={otherPhoto} size={32} />
           <div className="min-w-0">
             <p className={cn("eyebrow !text-sm", overlay && "!text-white/70")}>Chat</p>
             <p className={cn("truncate text-xs", overlay ? "text-white/60" : "text-mist")}>
               {!connected
                 ? `Local preview - talking to yourself as ${myName}`
-                : partnerPresence.typing
-                  ? `${otherName} is typing...`
-                  : partnerPresence.online
-                    ? `${otherName} is online`
-                    : `You, ${myName} - talking with ${otherName}`}
+                : `You, ${myName} - talking with ${otherName}`}
             </p>
           </div>
         </div>
