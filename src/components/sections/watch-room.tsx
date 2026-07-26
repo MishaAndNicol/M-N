@@ -102,12 +102,13 @@ const WHOAMI_KEY = "twostory-watch-whoami";
 // this, we jump instead of letting it drift back in sync on its own.
 const RESYNC_THRESHOLD_SECONDS = 1.5;
 
-// Turns pasted text (one episode per line) into Episode objects. Each line
-// is "video", "title | video", or "title | video | subtitle" - pipe-,
-// dash-, or comma-separated. The subtitle field is optional and, like the
-// video field, accepts a full R2 URL or a bare object key. Lines that
-// don't resolve to a playable video URL are reported back as errors
-// instead of silently dropped.
+// Turns pasted text (one episode per line) into Episode objects. A line can
+// mix separator styles - "Title - video.mkv | subtitle.vtt" (dash for the
+// title, pipe to tack on subtitles) works exactly like
+// "Title | video.mkv | subtitle.vtt" (pipe throughout). The subtitle field
+// is always optional and, like the video field, accepts a full R2 URL or a
+// bare object key. Lines that don't resolve to a playable video URL are
+// reported back as errors instead of silently dropped.
 function parseBulkLinks(
   text: string,
   startIndex: number,
@@ -122,22 +123,37 @@ function parseBulkLinks(
   const errors: string[] = [];
 
   lines.forEach((line, i) => {
-    const parts = line.split(/\s*[|]\s*/).filter(Boolean);
-    let title = "";
-    let link = line;
-    let subtitleRaw = "";
+    const parts = line.split(/\s*\|\s*/).filter(Boolean);
+    // "Title - https://...video" - only meaningful as a title/video split
+    // if what follows the dash actually looks like a link (otherwise a
+    // plain dash inside a title, e.g. "Part 1 - The Beginning", would get
+    // mistaken for a separator).
+    const dashMatch = parts[0].match(/^(.*?)\s*[-,]\s*(\S+)$/);
+    const dashSplitIsLink = dashMatch ? /^https?:\/\//i.test(dashMatch[2]) : false;
 
-    if (parts.length >= 2) {
-      // "title | video" or "title | video | subtitle"
+    let title = "";
+    let link = "";
+    let rest: string[];
+
+    if (parts.length === 1) {
+      // No pipes at all: "Title - video" / "Title, video" / bare link.
+      title = dashSplitIsLink ? dashMatch![1].trim() : "";
+      link = dashSplitIsLink ? dashMatch![2].trim() : parts[0];
+      rest = [];
+    } else if (dashSplitIsLink) {
+      // "Title - video | subtitle...": the first pipe-segment is itself a
+      // dash-joined "title - video" pair, so whatever comes after the pipe
+      // is the subtitle, not the video.
+      title = dashMatch![1].trim();
+      link = dashMatch![2].trim();
+      rest = parts.slice(1);
+    } else {
+      // "Title | video | subtitle...": plain pipe-separated fields.
       title = parts[0];
       link = parts[1];
-      subtitleRaw = parts[2] || "";
-    } else {
-      // fall back to "title - video" / "title, video" / bare link
-      const sepMatch = line.match(/^(.*?)\s*[-,]\s*(\S+)$/);
-      title = sepMatch ? sepMatch[1].trim() : "";
-      link = sepMatch ? sepMatch[2].trim() : line;
+      rest = parts.slice(2);
     }
+    const subtitleRaw = rest[0] || "";
 
     const videoUrl = resolveVideoUrl(link);
     if (!videoUrl) {
@@ -617,7 +633,9 @@ export function WatchRoom() {
             {linkError && <p className="mt-3 text-xs text-red-500">{linkError}</p>}
             <p className="mt-3 text-xs text-mist">
               Browsers can&apos;t read subtitles muxed inside the video file itself (mkv or otherwise) - only a
-              separate <code className="font-mono">.vtt</code> file, added here, actually shows up.
+              separate <code className="font-mono">.vtt</code> file, added here, actually shows up. The R2 bucket
+              needs a CORS policy allowing this site&apos;s origin (or <code className="font-mono">*</code>) for
+              both the video and the .vtt, or the browser silently refuses to load the subtitle track.
             </p>
           </div>
 
@@ -837,6 +855,15 @@ export function WatchRoom() {
                     controlsList="nofullscreen"
                     playsInline
                     preload="metadata"
+                    // Cross-origin <track> (WebVTT) files are only loaded
+                    // by the browser at all if the media element opts into
+                    // CORS - without this, subtitles fail silently with an
+                    // "Unsafe attempt to load URL..." console warning even
+                    // though the .vtt itself is reachable. Only set when a
+                    // subtitle track is actually attached, since this also
+                    // switches the *video* fetch to CORS mode, which needs
+                    // the R2 bucket's CORS policy to allow it too.
+                    crossOrigin={subtitleTrackUrl ? "anonymous" : undefined}
                     className="h-full w-full"
                     onPlay={handleLocalPlay}
                     onPause={handleLocalPause}

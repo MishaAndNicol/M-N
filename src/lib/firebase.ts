@@ -1,5 +1,5 @@
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
-import { getFirestore, type Firestore } from "firebase/firestore";
+import { initializeFirestore, type Firestore } from "firebase/firestore";
 import { getAuth, type Auth } from "firebase/auth";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
 
@@ -34,7 +34,16 @@ function ensureApp() {
 export function getDb() {
   const a = ensureApp();
   if (!a) return undefined;
-  if (!_db) _db = getFirestore(a);
+  if (!_db) {
+    // Optional fields across the app (episode.subtitleUrl, etc.) end up as
+    // `undefined` rather than omitted whenever a value wasn't set - plain
+    // JS, not a bug by itself, but Firestore's default behaviour is to
+    // throw on any undefined value anywhere in a write, including nested
+    // inside arrays. Rather than requiring every call site to scrub
+    // undefined keys by hand (and re-breaking the moment a new optional
+    // field is added), just tell Firestore to drop them itself.
+    _db = initializeFirestore(a, { ignoreUndefinedProperties: true });
+  }
   return _db;
 }
 
