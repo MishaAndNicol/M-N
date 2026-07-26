@@ -66,7 +66,11 @@ export function useUnreadWatchChatCount(): number {
     }
     const db = getDb();
     if (!db) return;
-    const q = query(collection(db, CHAT_COLLECTION), orderBy("createdAt", "desc"), limit(200));
+    // 60 is far more than two people will ever leave genuinely unread -
+    // this listener runs on every page via the navbar badge, not just the
+    // watch page, so keeping its window small matters more than for the
+    // chat panel itself.
+    const q = query(collection(db, CHAT_COLLECTION), orderBy("createdAt", "desc"), limit(60));
     function recompute(docs: { who?: string; createdAt?: Timestamp | null }[]) {
       const lastRead = getLastRead(whoAmI as "a" | "b");
       let n = 0;

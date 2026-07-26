@@ -36,10 +36,12 @@ type ChatMessage = {
 // Firestore's `limit()` just takes the first N docs matching the sort
 // order - it does NOT mean "most recent N". The query below sorts newest
 // first specifically so this cap keeps the *latest* messages instead of
-// silently freezing the chat once the older messages fill it up. Two
-// people won't get anywhere near this in practice; it exists only as a
-// sanity ceiling, not a real limit.
-const MAX_MESSAGES = 2000;
+// silently freezing the chat once the older messages fill it up.
+// Kept deliberately small (rather than a generous sanity ceiling) because
+// every mount of this component re-reads the whole window from Firestore -
+// older messages stay in the database untouched, they just won't live-load
+// into this view past the cap.
+const MAX_MESSAGES = 300;
 
 function formatTime(ts: Timestamp | null): string {
   if (!ts) return "";

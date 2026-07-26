@@ -9,8 +9,8 @@ const PRESENCE_COLLECTION = "watchRoomPresence";
 // has to get before we stop trusting it. Generous gap between the two so a
 // single missed beat (background tab throttling, brief network hiccup)
 // doesn't flip someone to "offline" and back.
-const HEARTBEAT_MS = 20_000;
-const ONLINE_STALE_MS = 45_000;
+const HEARTBEAT_MS = 45_000;
+const ONLINE_STALE_MS = 100_000;
 // How long a "typing" flag is trusted without a fresh keystroke - matches
 // the local clear timer in useTypingWriter, plus slack for clock skew.
 const TYPING_STALE_MS = 6_000;
@@ -73,11 +73,21 @@ export function usePresenceHeartbeat(whoAmI: "a" | "b" | null) {
   }, [whoAmI]);
 }
 
+// How often a still-typing person is allowed to re-announce "typing: true".
+// Well under TYPING_STALE_MS so the flag never expires on the other side
+// while someone is genuinely mid-sentence, but far enough apart that a
+// whole message doesn't cost one write per keystroke.
+const TYPING_WRITE_THROTTLE_MS = 3_000;
+
 // Writes "typing" to this person's presence doc, auto-clearing it a few
 // seconds after the last keystroke so it can't get stuck on if the tab
 // closes mid-message.
 export function useTypingWriter(whoAmI: "a" | "b" | null) {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Timestamp of the last "typing: true" write actually sent, so rapid
+  // keystrokes between throttle windows don't each trigger their own
+  // setDoc - only the first keystroke in a window does.
+  const lastTypingWriteRef = useRef<number>(0);
 
   function writeTyping(typing: boolean) {
     if (!whoAmI || !isFirebaseConfigured) return;
@@ -92,13 +102,23 @@ export function useTypingWriter(whoAmI: "a" | "b" | null) {
 
   function notifyTyping() {
     if (!whoAmI || !isFirebaseConfigured) return;
-    writeTyping(true);
+    const now = Date.now();
+    if (now - lastTypingWriteRef.current >= TYPING_WRITE_THROTTLE_MS) {
+      lastTypingWriteRef.current = now;
+      writeTyping(true);
+    }
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(() => writeTyping(false), TYPING_STALE_MS - 1_000);
+    timeoutRef.current = setTimeout(() => {
+      writeTyping(false);
+      // Reset so the very next keystroke after a pause announces "typing"
+      // right away instead of waiting out a stale throttle window.
+      lastTypingWriteRef.current = 0;
+    }, TYPING_STALE_MS - 1_000);
   }
 
   function stopTyping() {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    lastTypingWriteRef.current = 0;
     writeTyping(false);
   }
 
