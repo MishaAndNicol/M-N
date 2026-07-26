@@ -34,11 +34,19 @@ function millisOf(ts: Timestamp | null | undefined): number {
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
+// Presence (online dot + "is typing...") is disabled to keep the room's
+// Firestore quota concentrated on chat and playback sync, which matter far
+// more than a green dot. The hooks below are kept as no-ops (rather than
+// removed) so call sites don't need to change - flip PRESENCE_ENABLED back
+// to re-enable everything at once.
+const PRESENCE_ENABLED = false;
+
 // Keeps this browser's presence doc alive while whoAmI is known - marks
 // online on mount/focus, offline on tab close/hide. Nothing to render;
 // call it once near the top of the room.
 export function usePresenceHeartbeat(whoAmI: "a" | "b" | null) {
   useEffect(() => {
+    if (!PRESENCE_ENABLED) return;
     if (!whoAmI || !isFirebaseConfigured) return;
     const db = getDb();
     if (!db) return;
@@ -90,6 +98,7 @@ export function useTypingWriter(whoAmI: "a" | "b" | null) {
   const lastTypingWriteRef = useRef<number>(0);
 
   function writeTyping(typing: boolean) {
+    if (!PRESENCE_ENABLED) return;
     if (!whoAmI || !isFirebaseConfigured) return;
     const db = getDb();
     if (!db) return;
@@ -136,7 +145,7 @@ export function usePartnerPresence(whoAmI: "a" | "b" | null): { online: boolean;
   const [state, setState] = useState({ online: false, typing: false });
 
   useEffect(() => {
-    if (!whoAmI || !isFirebaseConfigured) {
+    if (!PRESENCE_ENABLED || !whoAmI || !isFirebaseConfigured) {
       setState({ online: false, typing: false });
       return;
     }

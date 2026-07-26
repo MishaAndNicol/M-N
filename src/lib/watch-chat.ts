@@ -5,8 +5,8 @@ import { collection, limit, onSnapshot, orderBy, query, type Timestamp } from "f
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
 
 // Same key watch-room.tsx stores "which person is this browser" under -
-// shared here so the navbar badge can read it without importing the room
-// component.
+// shared here so anything reading unread counts doesn't need to import the
+// room component itself.
 export const WATCH_WHOAMI_KEY = "twostory-watch-whoami";
 export const CHAT_COLLECTION = "watchRoomChat";
 
@@ -40,8 +40,11 @@ export function markWatchChatRead(who: "a" | "b") {
 
 // Live count of messages from the *other* person that arrived after this
 // person's last-read mark. Used to badge the chat toggle button inside the
-// watch room, and the "Watch" link in the navbar, so a message doesn't go
-// unnoticed just because the chat window is closed.
+// watch room - the navbar used to have its own copy of this badge too, but
+// that meant two identical listeners on the same collection running at
+// once whenever you were on /watch, for no real benefit (you can already
+// see this exact count on the chat button right there). Removed; this is
+// now the only place this count is read.
 export function useUnreadWatchChatCount(): number {
   const [whoAmI, setWhoAmI] = useState<"a" | "b" | null>(null);
   const [count, setCount] = useState(0);

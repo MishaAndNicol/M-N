@@ -221,6 +221,10 @@ export function WatchRoom() {
   // Last syncUpdatedAt (as millis) we've already applied, so re-renders
   // triggered by unrelated room fields don't reprocess the same event.
   const lastAppliedSyncRef = useRef<number | null>(null);
+  // Position (in seconds) as of our last periodic drift-correction write -
+  // see the interval effect below. Reset on play/pause/seek/episode change
+  // so a periodic write never lands right on top of an event-driven one.
+  const lastPeriodicPositionRef = useRef(0);
 
   const people = site.people;
   const nameA = people[0]?.name ?? "A";
@@ -479,6 +483,7 @@ export function WatchRoom() {
     if (applyingRemoteRef.current) return;
     const video = videoRef.current;
     if (!video) return;
+    lastPeriodicPositionRef.current = video.currentTime;
     writeRoom({
       playing: true,
       positionSeconds: video.currentTime,
@@ -491,6 +496,7 @@ export function WatchRoom() {
     if (applyingRemoteRef.current) return;
     const video = videoRef.current;
     if (!video) return;
+    lastPeriodicPositionRef.current = video.currentTime;
     writeRoom({
       playing: false,
       positionSeconds: video.currentTime,
@@ -505,6 +511,7 @@ export function WatchRoom() {
     if (applyingRemoteRef.current) return;
     const video = videoRef.current;
     if (!video) return;
+    lastPeriodicPositionRef.current = video.currentTime;
     writeRoom({
       positionSeconds: video.currentTime,
       playing: !video.paused,
@@ -512,6 +519,48 @@ export function WatchRoom() {
       syncUpdatedAt: connected ? (serverTimestamp() as unknown as Timestamp) : (new Date() as unknown as Timestamp),
     });
   }
+
+  // Drift-correction heartbeat for the *position* only - everything else
+  // (play/pause/seek/episode change) is already written instantly by the
+  // handlers above. Ticks every second locally (cheap, no network) but
+  // only actually writes to Firestore once playback has moved 25+ real
+  // seconds past the last write, and only while this tab's video is
+  // genuinely playing (not paused, not mid-application of a remote
+  // update). Deliberately low priority next to chat and play/pause/seek/
+  // next-episode sync, which are the things that actually matter during a
+  // watch session - this is just a slow safety net against long-session
+  // drift (buffering, clock skew) and a stale position for someone who
+  // reloads mid-episode.
+  //
+  // Only the side that last drove sync (room.syncBy === myName - i.e.
+  // whoever most recently pressed play/pause/seeked/changed episode) runs
+  // this heartbeat at all. Both sides' videos are playing in lockstep, so
+  // without this guard both tabs would independently cross the 25s
+  // threshold at nearly the same moment and each write their own copy -
+  // double the writes for no benefit. Ownership simply follows whoever's
+  // driving; the other side stays silent until they take an action of
+  // their own.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !room.videoUrl) return;
+    if (room.syncBy !== myName) return;
+
+    const interval = setInterval(() => {
+      if (applyingRemoteRef.current || video.paused) return;
+      const pos = video.currentTime;
+      if (Math.abs(pos - lastPeriodicPositionRef.current) < 25) return;
+      lastPeriodicPositionRef.current = pos;
+      writeRoom({
+        positionSeconds: pos,
+        playing: true,
+        syncBy: myName,
+        syncUpdatedAt: connected ? (serverTimestamp() as unknown as Timestamp) : (new Date() as unknown as Timestamp),
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room.videoUrl, room.syncBy, connected, myName]);
 
   return (
     <div className="space-y-8">

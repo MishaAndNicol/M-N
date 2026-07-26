@@ -7,7 +7,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Moon, Sun, Menu, X } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
-import { useUnreadWatchChatCount } from "@/lib/watch-chat";
 
 const LINKS = [
   { href: "/about", label: "About" },
@@ -21,7 +20,6 @@ export function Navbar() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const { resolvedTheme, setTheme } = useTheme();
-  const unreadChatCount = useUnreadWatchChatCount();
 
   return (
     <header className="fixed inset-x-0 top-0 z-50">
@@ -42,11 +40,6 @@ export function Navbar() {
                 )}
               >
                 {link.label}
-                {link.href === "/watch" && unreadChatCount > 0 && (
-                  <span className="absolute -right-1 -top-1 grid h-4 min-w-[1rem] place-items-center rounded-full bg-red-500 px-1 text-[9px] font-medium leading-none text-white">
-                    {unreadChatCount > 9 ? "9+" : unreadChatCount}
-                  </span>
-                )}
                 {pathname === link.href && (
                   <span className="absolute inset-x-2 -bottom-0.5 hidden h-px bg-thread dark:block" />
                 )}
@@ -102,11 +95,6 @@ export function Navbar() {
                     className="flex items-center gap-2 border-b border-line py-4 font-display text-3xl dark:border-line-dark"
                   >
                     {link.label}
-                    {link.href === "/watch" && unreadChatCount > 0 && (
-                      <span className="grid h-6 min-w-[1.5rem] place-items-center rounded-full bg-red-500 px-1.5 text-sm font-sans font-medium leading-none text-white">
-                        {unreadChatCount > 9 ? "9+" : unreadChatCount}
-                      </span>
-                    )}
                   </Link>
                 </motion.div>
               ))}
