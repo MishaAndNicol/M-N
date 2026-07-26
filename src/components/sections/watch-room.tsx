@@ -17,6 +17,7 @@ import {
   FolderPlus,
   Folder,
   SkipForward,
+  Captions,
 } from "lucide-react";
 import {
   doc,
@@ -39,12 +40,17 @@ import Image from "next/image";
 // the list and re-hydrate the player when picked. `videoUrl` is always a
 // fully-resolved https:// URL (resolved once, at add-time, via
 // resolveVideoUrl) so playback never depends on env config changing later.
+// `subtitleUrl` is the same, but for a WebVTT (.vtt) file - optional,
+// since browsers can't read subtitle tracks embedded inside a video
+// container (mkv, mp4, ...) directly; only a separate .vtt file rendered
+// through <track> actually shows up.
 // `sectionId` groups it under one of `RoomState.sections` below - `null`
 // means it sits in the unsorted "No section" group.
 type Episode = {
   id: string;
   title: string;
   videoUrl: string;
+  subtitleUrl?: string;
   sectionId: string | null;
 };
 
@@ -66,6 +72,7 @@ type Section = {
 // snapshot listener so it doesn't re-apply them to itself.
 type RoomState = {
   videoUrl: string;
+  subtitleUrl: string;
   title: string;
   setBy: string;
   playing: boolean;
@@ -78,6 +85,7 @@ type RoomState = {
 
 const EMPTY_ROOM: RoomState = {
   videoUrl: "",
+  subtitleUrl: "",
   title: "",
   setBy: "",
   playing: false,
@@ -94,11 +102,12 @@ const WHOAMI_KEY = "twostory-watch-whoami";
 // this, we jump instead of letting it drift back in sync on its own.
 const RESYNC_THRESHOLD_SECONDS = 1.5;
 
-// Turns pasted text (one episode per line) into Episode objects. Accepts a
-// bare R2 URL/key, or "Title - link" / "Title | link" / "Title, link" -
-// anything with the link at the end of the line after a separator. Lines
-// that don't resolve to a playable URL are reported back as errors instead
-// of silently dropped.
+// Turns pasted text (one episode per line) into Episode objects. Each line
+// is "video", "title | video", or "title | video | subtitle" - pipe-,
+// dash-, or comma-separated. The subtitle field is optional and, like the
+// video field, accepts a full R2 URL or a bare object key. Lines that
+// don't resolve to a playable video URL are reported back as errors
+// instead of silently dropped.
 function parseBulkLinks(
   text: string,
   startIndex: number,
@@ -113,9 +122,22 @@ function parseBulkLinks(
   const errors: string[] = [];
 
   lines.forEach((line, i) => {
-    const sepMatch = line.match(/^(.*?)\s*[-|,]\s*(\S+)$/);
-    const title = sepMatch ? sepMatch[1].trim() : "";
-    const link = sepMatch ? sepMatch[2].trim() : line;
+    const parts = line.split(/\s*[|]\s*/).filter(Boolean);
+    let title = "";
+    let link = line;
+    let subtitleRaw = "";
+
+    if (parts.length >= 2) {
+      // "title | video" or "title | video | subtitle"
+      title = parts[0];
+      link = parts[1];
+      subtitleRaw = parts[2] || "";
+    } else {
+      // fall back to "title - video" / "title, video" / bare link
+      const sepMatch = line.match(/^(.*?)\s*[-,]\s*(\S+)$/);
+      title = sepMatch ? sepMatch[1].trim() : "";
+      link = sepMatch ? sepMatch[2].trim() : line;
+    }
 
     const videoUrl = resolveVideoUrl(link);
     if (!videoUrl) {
@@ -124,11 +146,13 @@ function parseBulkLinks(
       );
       return;
     }
+    const subtitleUrl = subtitleRaw ? resolveVideoUrl(subtitleRaw) || undefined : undefined;
 
     episodes.push({
       id: `${Date.now()}-${startIndex + i}-${Math.random().toString(36).slice(2, 7)}`,
       title: title || `Серия ${startIndex + episodes.length + 1}`,
       videoUrl,
+      subtitleUrl,
       sectionId,
     });
   });
@@ -149,6 +173,7 @@ export function WatchRoom() {
   const [room, setRoom] = useState<RoomState>(EMPTY_ROOM);
   const [linkInput, setLinkInput] = useState("");
   const [titleInput, setTitleInput] = useState("");
+  const [subtitleInput, setSubtitleInput] = useState("");
   const [linkError, setLinkError] = useState<string | null>(null);
   const [bulkInput, setBulkInput] = useState("");
   const [bulkErrors, setBulkErrors] = useState<string[]>([]);
@@ -261,6 +286,7 @@ export function WatchRoom() {
     setLinkError(null);
     setVideoError(false);
     const title = titleInput.trim() || "Untitled";
+    const subtitleUrl = subtitleInput.trim() ? resolveVideoUrl(subtitleInput.trim()) || undefined : undefined;
     const sectionId = targetSectionId || null;
     // File it into the playlist too (under the chosen section) instead of
     // only setting it as "now playing" - otherwise anything added this way
@@ -268,9 +294,13 @@ export function WatchRoom() {
     const alreadyInPlaylist = room.playlist.some((ep) => ep.videoUrl === videoUrl);
     const nextPlaylist = alreadyInPlaylist
       ? room.playlist
-      : [...room.playlist, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, title, videoUrl, sectionId }];
+      : [
+          ...room.playlist,
+          { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, title, videoUrl, subtitleUrl, sectionId },
+        ];
     writeRoom({
       videoUrl,
+      subtitleUrl: subtitleUrl || "",
       title,
       setBy: myName,
       playing: false,
@@ -281,6 +311,7 @@ export function WatchRoom() {
     });
     setLinkInput("");
     setTitleInput("");
+    setSubtitleInput("");
   }
 
   function handleBulkAdd() {
@@ -318,6 +349,7 @@ export function WatchRoom() {
     setVideoError(false);
     writeRoom({
       videoUrl: ep.videoUrl,
+      subtitleUrl: ep.subtitleUrl || "",
       title: ep.title,
       setBy: myName,
       playing: Boolean(opts?.autoplay),
@@ -332,6 +364,7 @@ export function WatchRoom() {
   }
 
   const mediaUrl = useMemo(() => (room.videoUrl ? room.videoUrl : null), [room.videoUrl]);
+  const subtitleTrackUrl = useMemo(() => (room.subtitleUrl ? room.subtitleUrl : null), [room.subtitleUrl]);
 
   // Playback order for "next episode": section by section, in the order
   // sections were created, then anything left ungrouped at the end -
@@ -572,7 +605,20 @@ export function WatchRoom() {
                 Set
               </button>
             </div>
+            <div className="relative mt-3">
+              <Captions className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-mist" />
+              <input
+                value={subtitleInput}
+                onChange={(e) => setSubtitleInput(e.target.value)}
+                placeholder="Subtitles (optional) - .vtt URL or R2 object key"
+                className="w-full rounded-full border border-line bg-transparent py-2 pl-9 pr-4 text-sm outline-none transition-colors focus:border-thread dark:border-line-dark"
+              />
+            </div>
             {linkError && <p className="mt-3 text-xs text-red-500">{linkError}</p>}
+            <p className="mt-3 text-xs text-mist">
+              Browsers can&apos;t read subtitles muxed inside the video file itself (mkv or otherwise) - only a
+              separate <code className="font-mono">.vtt</code> file, added here, actually shows up.
+            </p>
           </div>
 
           {/* sections - group the playlist instead of one long mixed list */}
@@ -623,10 +669,17 @@ export function WatchRoom() {
             <textarea
               value={bulkInput}
               onChange={(e) => setBulkInput(e.target.value)}
-              placeholder={"Episode 1 - https://pub-xxxx.r2.dev/episode-01.mp4\nEpisode 2 - https://pub-xxxx.r2.dev/episode-02.mp4\n..."}
+              placeholder={
+                "Episode 1 | https://pub-xxxx.r2.dev/episode-01.mp4\n" +
+                "Episode 2 | https://pub-xxxx.r2.dev/episode-02.mp4 | https://pub-xxxx.r2.dev/episode-02.vtt\n..."
+              }
               rows={5}
               className="w-full rounded-[var(--season-radius-sm)] border border-line bg-transparent p-3 font-mono text-xs outline-none transition-colors focus:border-thread dark:border-line-dark"
             />
+            <p className="mt-2 text-xs text-mist">
+              One per line: <code className="font-mono">title | video</code> or{" "}
+              <code className="font-mono">title | video | subtitles.vtt</code> (subtitles optional).
+            </p>
             <div className="mt-3 flex items-center gap-3">
               <button
                 onClick={handleBulkAdd}
@@ -703,6 +756,12 @@ export function WatchRoom() {
                             <span className="flex min-w-0 items-center gap-2">
                               <span className="shrink-0 text-xs text-mist">{i + 1}.</span>
                               <span className="truncate">{ep.title}</span>
+                              {ep.subtitleUrl && (
+                                <Captions
+                                  className="h-3.5 w-3.5 shrink-0 text-mist"
+                                  aria-label="Has subtitles"
+                                />
+                              )}
                             </span>
                             <span className="flex shrink-0 items-center gap-1.5">
                               <button
@@ -771,6 +830,7 @@ export function WatchRoom() {
                   )}
                 >
                   <video
+                    key={mediaUrl}
                     ref={videoRef}
                     src={mediaUrl}
                     controls
@@ -783,7 +843,17 @@ export function WatchRoom() {
                     onSeeked={handleLocalSeeked}
                     onEnded={handleVideoEnded}
                     onError={() => setVideoError(true)}
-                  />
+                  >
+                    {subtitleTrackUrl && (
+                      <track
+                        kind="subtitles"
+                        src={subtitleTrackUrl}
+                        srcLang="ru"
+                        label="Subtitles"
+                        default
+                      />
+                    )}
+                  </video>
 
                   {/* chat + fullscreen toggles - stay in the same corner of
                       the stage whether we're in the normal page layout or
