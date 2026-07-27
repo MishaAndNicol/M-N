@@ -945,19 +945,22 @@ export function WatchRoom() {
                     </button>
                   </div>
 
-                  <AnimatePresence>
-                    {showChat && (
-                      <motion.div
-                        initial={{ x: "100%", opacity: 0 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        exit={{ x: "100%", opacity: 0 }}
-                        transition={{ type: "tween", duration: 0.25 }}
-                        className="absolute inset-y-0 right-0 z-10 w-full max-w-sm sm:w-96"
-                      >
-                        <WatchChat whoAmI={whoAmI} nameA={nameA} nameB={nameB} photoA={photoA} photoB={photoB} variant="overlay" />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  {/* Deliberately always mounted (not `{showChat && ...}`) -
+                      unmounting on every close would tear down WatchChat's
+                      onSnapshot listener, and remounting it on the next
+                      open re-reads up to MAX_MESSAGES documents from
+                      scratch. Toggling is purely visual here; the
+                      underlying chat subscription is paid for once per
+                      video session, not once per open/close. */}
+                  <motion.div
+                    animate={{ x: showChat ? 0 : "100%", opacity: showChat ? 1 : 0 }}
+                    transition={{ type: "tween", duration: 0.25 }}
+                    style={{ pointerEvents: showChat ? "auto" : "none" }}
+                    aria-hidden={!showChat}
+                    className="absolute inset-y-0 right-0 z-10 w-full max-w-sm sm:w-96"
+                  >
+                    <WatchChat whoAmI={whoAmI} nameA={nameA} nameB={nameB} photoA={photoA} photoB={photoB} variant="overlay" visible={showChat} />
+                  </motion.div>
 
                   <AnimatePresence>
                     {videoError && (

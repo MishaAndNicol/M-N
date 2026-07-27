@@ -87,6 +87,7 @@ export function WatchChat({
   photoA,
   photoB,
   variant = "panel",
+  visible = true,
 }: {
   whoAmI: "a" | "b";
   nameA: string;
@@ -97,6 +98,14 @@ export function WatchChat({
   // flow. "overlay" - fills its parent (the video stage) and uses a dark,
   // translucent surface so it reads well sitting on top of the film.
   variant?: "panel" | "overlay";
+  // Whether this instance is actually visible to the person right now.
+  // Defaults to true for the "panel" layout (always on-screen when
+  // rendered), but the "overlay" variant in watch-room.tsx now stays
+  // mounted even while closed (see the comment there), so it passes this
+  // explicitly - otherwise a hidden-but-mounted chat would mark every
+  // incoming message "read" instantly and the unread badge would always
+  // show zero.
+  visible?: boolean;
 }) {
   const connected = isFirebaseConfigured;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -150,8 +159,9 @@ export function WatchChat({
   // the overlay is toggled open in the room. So mounted + new message =
   // seen; mark it read here rather than waiting for an explicit click.
   useEffect(() => {
+    if (!visible) return;
     markWatchChatRead(whoAmI);
-  }, [whoAmI, messages.length]);
+  }, [whoAmI, messages.length, visible]);
 
   async function handleSend(e: FormEvent) {
     e.preventDefault();
