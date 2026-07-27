@@ -32,7 +32,7 @@ import { site } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
 import { WatchChat } from "@/components/sections/watch-chat";
 import { useUnreadWatchChatCount } from "@/lib/watch-chat";
-import { usePresenceHeartbeat, usePartnerPresence } from "@/lib/presence";
+import { usePresenceHeartbeat } from "@/lib/presence";
 import { withBasePath } from "@/lib/base-path";
 import Image from "next/image";
 
@@ -233,7 +233,6 @@ export function WatchRoom() {
   const photoB = people[1]?.photo;
   const myName = whoAmI === "a" ? nameA : whoAmI === "b" ? nameB : "";
   usePresenceHeartbeat(whoAmI);
-  const partnerPresence = usePartnerPresence(whoAmI);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(WHOAMI_KEY);
@@ -607,38 +606,22 @@ export function WatchRoom() {
       {whoAmI && (
         <div className="space-y-8">
           <div className="flex items-center gap-2.5 text-sm text-mist">
-            <span className="relative shrink-0">
-              <span className="relative block h-7 w-7 overflow-hidden rounded-full">
-                {(whoAmI === "a" ? photoB : photoA) ? (
-                  <Image
-                    src={withBasePath((whoAmI === "a" ? photoB : photoA) as string)}
-                    alt={whoAmI === "a" ? nameB : nameA}
-                    fill
-                    sizes="28px"
-                    className="object-cover"
-                  />
-                ) : (
-                  <span className="grid h-full w-full place-items-center bg-thread/20 text-[10px] font-medium text-thread">
-                    {(whoAmI === "a" ? nameB : nameA).slice(0, 1).toUpperCase()}
-                  </span>
-                )}
-              </span>
-              {connected && (
-                <span
-                  className={cn(
-                    "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-paper dark:ring-void",
-                    partnerPresence.online ? "bg-emerald-500" : "bg-mist/50"
-                  )}
+            <span className="relative block h-7 w-7 shrink-0 overflow-hidden rounded-full">
+              {(whoAmI === "a" ? photoB : photoA) ? (
+                <Image
+                  src={withBasePath((whoAmI === "a" ? photoB : photoA) as string)}
+                  alt={whoAmI === "a" ? nameB : nameA}
+                  fill
+                  sizes="28px"
+                  className="object-cover"
                 />
+              ) : (
+                <span className="grid h-full w-full place-items-center bg-thread/20 text-[10px] font-medium text-thread">
+                  {(whoAmI === "a" ? nameB : nameA).slice(0, 1).toUpperCase()}
+                </span>
               )}
             </span>
-            {connected
-              ? partnerPresence.typing
-                ? `${whoAmI === "a" ? nameB : nameA} is typing...`
-                : partnerPresence.online
-                  ? `${whoAmI === "a" ? nameB : nameA} is online`
-                  : `${whoAmI === "a" ? nameB : nameA} is offline`
-              : `You're ${myName}`}
+            {connected ? `Watching with ${whoAmI === "a" ? nameB : nameA}` : `You're ${myName}`}
           </div>
 
           {/* set / change film */}
