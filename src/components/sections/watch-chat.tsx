@@ -88,6 +88,7 @@ export function WatchChat({
   photoB,
   variant = "panel",
   visible = true,
+  onClose,
 }: {
   whoAmI: "a" | "b";
   nameA: string;
@@ -106,6 +107,11 @@ export function WatchChat({
   // incoming message "read" instantly and the unread badge would always
   // show zero.
   visible?: boolean;
+  // On phones the overlay becomes a full-screen sheet (see watch-room.tsx)
+  // that covers the corner toggle button which normally closes it - so on
+  // that breakpoint we need a close control that lives inside the panel
+  // itself. Only rendered when provided.
+  onClose?: () => void;
 }) {
   const connected = isFirebaseConfigured;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -288,22 +294,39 @@ export function WatchChat({
             </p>
           </div>
         </div>
-        <button
-          onClick={handleClearChat}
-          disabled={messages.length === 0}
-          title="Clear entire chat"
-          className={cn(
-            "flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40",
-            confirmClear
-              ? "border-red-500 bg-red-500 text-white"
-              : overlay
-                ? "border-white/20 text-white/70 hover:border-red-400/60 hover:bg-red-500/10 hover:text-red-300"
-                : "border-line text-mist hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-500 dark:border-line-dark"
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            onClick={handleClearChat}
+            disabled={messages.length === 0}
+            title="Clear entire chat"
+            className={cn(
+              "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+              confirmClear
+                ? "border-red-500 bg-red-500 text-white"
+                : overlay
+                  ? "border-white/20 text-white/70 hover:border-red-400/60 hover:bg-red-500/10 hover:text-red-300"
+                  : "border-line text-mist hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-500 dark:border-line-dark"
+            )}
+          >
+            <Trash2 className="h-3 w-3" />
+            {confirmClear ? "Confirm clear" : "Clear chat"}
+          </button>
+          {/* Only needed on phones, where this panel becomes a full-screen
+              sheet that covers the corner toggle button in watch-room.tsx -
+              hidden at sm+ where that corner button remains reachable. */}
+          {onClose && (
+            <button
+              onClick={onClose}
+              aria-label="Close chat"
+              className={cn(
+                "grid h-8 w-8 shrink-0 place-items-center rounded-full transition-colors sm:hidden",
+                overlay ? "text-white/70 hover:bg-white/10 hover:text-white" : "text-mist hover:bg-thread/10 hover:text-thread"
+              )}
+            >
+              <XIcon className="h-4 w-4" />
+            </button>
           )}
-        >
-          <Trash2 className="h-3 w-3" />
-          {confirmClear ? "Confirm clear" : "Clear chat"}
-        </button>
+        </div>
       </div>
 
       <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto px-5 py-5">
@@ -371,7 +394,7 @@ export function WatchChat({
                           if (e.key === "Enter") saveEdit(m.id);
                           if (e.key === "Escape") cancelEdit();
                         }}
-                        className="w-full min-w-[10rem] rounded-full border border-white/30 bg-transparent px-3 py-1 text-sm text-inherit outline-none"
+                        className="w-full min-w-[10rem] rounded-full border border-white/30 bg-transparent px-3 py-1 text-base text-inherit outline-none sm:text-sm"
                       />
                       <button onClick={() => saveEdit(m.id)} title="Save" className="grid h-6 w-6 shrink-0 place-items-center rounded-full hover:bg-white/20">
                         <Check className="h-3.5 w-3.5" />
@@ -401,7 +424,10 @@ export function WatchChat({
 
       <form
         onSubmit={handleSend}
-        className={cn("flex items-center gap-2 border-t p-4", overlay ? "border-white/10" : "border-line dark:border-line-dark")}
+        className={cn(
+          "flex items-center gap-2 border-t p-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
+          overlay ? "border-white/10" : "border-line dark:border-line-dark"
+        )}
       >
         <input
           value={draft}
@@ -412,7 +438,7 @@ export function WatchChat({
           }}
           placeholder={`Message ${otherName}...`}
           className={cn(
-            "w-full rounded-full border bg-transparent px-4 py-2.5 text-sm outline-none transition-colors",
+            "w-full rounded-full border bg-transparent px-4 py-2.5 text-base outline-none transition-colors sm:text-sm",
             overlay
               ? "border-white/15 text-white placeholder:text-white/40 focus:border-white/40"
               : "border-line focus:border-thread dark:border-line-dark"

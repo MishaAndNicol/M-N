@@ -951,15 +951,32 @@ export function WatchRoom() {
                       open re-reads up to MAX_MESSAGES documents from
                       scratch. Toggling is purely visual here; the
                       underlying chat subscription is paid for once per
-                      video session, not once per open/close. */}
+                      video session, not once per open/close.
+
+                      Below `sm`, this is a full-screen fixed sheet rather
+                      than a panel confined to the video stage - on a phone
+                      in portrait the aspect-video box is only ~200px tall,
+                      nowhere near enough room for a message list plus the
+                      keyboard. At `sm` and up there's enough width for a
+                      proper side panel, so it reverts to sitting inside
+                      the video stage like before. */}
                   <motion.div
                     animate={{ x: showChat ? 0 : "100%", opacity: showChat ? 1 : 0 }}
                     transition={{ type: "tween", duration: 0.25 }}
                     style={{ pointerEvents: showChat ? "auto" : "none" }}
                     aria-hidden={!showChat}
-                    className="absolute inset-y-0 right-0 z-10 w-full max-w-sm sm:w-96"
+                    className="fixed inset-0 z-40 sm:absolute sm:inset-0 sm:left-auto sm:z-10 sm:w-96 sm:max-w-sm"
                   >
-                    <WatchChat whoAmI={whoAmI} nameA={nameA} nameB={nameB} photoA={photoA} photoB={photoB} variant="overlay" visible={showChat} />
+                    <WatchChat
+                      whoAmI={whoAmI}
+                      nameA={nameA}
+                      nameB={nameB}
+                      photoA={photoA}
+                      photoB={photoB}
+                      variant="overlay"
+                      visible={showChat}
+                      onClose={() => setShowChat(false)}
+                    />
                   </motion.div>
 
                   <AnimatePresence>
