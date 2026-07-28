@@ -225,6 +225,10 @@ export function WatchRoom() {
   // see the interval effect below. Reset on play/pause/seek/episode change
   // so a periodic write never lands right on top of an event-driven one.
   const lastPeriodicPositionRef = useRef(0);
+  // The chat sheet's own element, only used on phones to keep it correctly
+  // sized/positioned against the *visual* viewport when the on-screen
+  // keyboard opens - see the effect below.
+  const chatSheetRef = useRef<HTMLDivElement>(null);
 
   const people = site.people;
   const nameA = people[0]?.name ?? "A";
@@ -266,6 +270,60 @@ export function WatchRoom() {
       stageRef.current?.requestFullscreen().catch(() => {});
     }
   }
+
+  // The Fullscreen API and the on-screen keyboard don't play well together
+  // on phone browsers - focusing the message input while the stage is
+  // fullscreen can leave the page scrolled to the wrong place, hide the
+  // input behind the keyboard, or otherwise scramble the layout (this is a
+  // known rough edge across mobile Safari/Chrome, not something fixable
+  // from our CSS). Simplest reliable fix: on narrow screens, opening chat
+  // drops out of fullscreen first. The video keeps playing (audio and
+  // all) as a normal-sized element behind the now full-screen chat sheet,
+  // and the keyboard then behaves like it does on any ordinary page.
+  useEffect(() => {
+    if (!showChat) return;
+    if (typeof window === "undefined" || !window.matchMedia("(max-width: 639px)").matches) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+  }, [showChat]);
+
+  // Keeps the full-screen chat sheet matched to the *visual* viewport
+  // (window.visualViewport) instead of the layout viewport, on phones only.
+  // Without this, a `fixed inset-0` element doesn't shrink when the
+  // on-screen keyboard opens - the keyboard just covers whatever happens
+  // to be at the bottom, which for us is the message input. Reacting to
+  // visualViewport keeps the sheet's actual height in sync with the space
+  // really available above the keyboard, so the input stays in view and
+  // scrolled-to.
+  useEffect(() => {
+    if (!showChat) return;
+    const vv = typeof window !== "undefined" ? window.visualViewport : undefined;
+    const el = chatSheetRef.current;
+    if (!vv || !el) return;
+
+    function update() {
+      if (!vv || !el) return;
+      if (window.matchMedia("(min-width: 640px)").matches) {
+        // Tablet/desktop side panel - not affected by any of this.
+        el.style.height = "";
+        el.style.top = "";
+        return;
+      }
+      el.style.height = `${vv.height}px`;
+      el.style.top = `${vv.offsetTop}px`;
+    }
+
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+      el.style.height = "";
+      el.style.top = "";
+    };
+  }, [showChat]);
 
   // Live subscription to the shared room doc. Falls back to local-only
   // state (same spirit as the guestbook) when Firebase isn't configured -
@@ -961,6 +1019,7 @@ export function WatchRoom() {
                       proper side panel, so it reverts to sitting inside
                       the video stage like before. */}
                   <motion.div
+                    ref={chatSheetRef}
                     animate={{ x: showChat ? 0 : "100%", opacity: showChat ? 1 : 0 }}
                     transition={{ type: "tween", duration: 0.25 }}
                     style={{ pointerEvents: showChat ? "auto" : "none" }}
