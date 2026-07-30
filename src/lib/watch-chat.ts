@@ -1,9 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { collection, limit, onSnapshot, orderBy, query, type Timestamp } from "firebase/firestore";
-import { getDb, isFirebaseConfigured } from "@/lib/firebase";
-
 // Same key watch-room.tsx stores "which person is this browser" under -
 // shared here so anything reading unread counts doesn't need to import the
 // room component itself.
@@ -11,11 +7,6 @@ export const WATCH_WHOAMI_KEY = "twostory-watch-whoami";
 export const CHAT_COLLECTION = "watchRoomChat";
 
 const LAST_READ_KEY_PREFIX = "twostory-watch-chat-lastread-";
-// localStorage's own "storage" event only fires in *other* tabs, not the
-// one that made the change - this custom event lets components in the same
-// tab (e.g. the chat panel marking itself read) tell the navbar badge to
-// re-check immediately instead of waiting for the next snapshot.
-const READ_EVENT = "twostory-watch-chat-read";
 
 export function getWatchWhoAmI(): "a" | "b" | null {
   if (typeof window === "undefined") return null;
@@ -23,7 +14,10 @@ export function getWatchWhoAmI(): "a" | "b" | null {
   return v === "a" || v === "b" ? v : null;
 }
 
-function getLastRead(who: "a" | "b"): number {
+// Exported so WatchChat can compute its own unread count from the messages
+// it already has loaded through its single live listener, instead of a
+// second onSnapshot listener existing purely to recompute the same number.
+export function getLastRead(who: "a" | "b"): number {
   if (typeof window === "undefined") return 0;
   const raw = window.localStorage.getItem(LAST_READ_KEY_PREFIX + who);
   return raw ? Number(raw) || 0 : 0;
@@ -35,73 +29,4 @@ function getLastRead(who: "a" | "b"): number {
 export function markWatchChatRead(who: "a" | "b") {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(LAST_READ_KEY_PREFIX + who, String(Date.now()));
-  window.dispatchEvent(new Event(READ_EVENT));
-}
-
-// Live count of messages from the *other* person that arrived after this
-// person's last-read mark. Used to badge the chat toggle button inside the
-// watch room - the navbar used to have its own copy of this badge too, but
-// that meant two identical listeners on the same collection running at
-// once whenever you were on /watch, for no real benefit (you can already
-// see this exact count on the chat button right there). Removed; this is
-// now the only place this count is read.
-export function useUnreadWatchChatCount(): number {
-  const [whoAmI, setWhoAmI] = useState<"a" | "b" | null>(null);
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    setWhoAmI(getWatchWhoAmI());
-    function refresh() {
-      setWhoAmI(getWatchWhoAmI());
-    }
-    window.addEventListener(READ_EVENT, refresh);
-    window.addEventListener("storage", refresh);
-    return () => {
-      window.removeEventListener(READ_EVENT, refresh);
-      window.removeEventListener("storage", refresh);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!whoAmI || !isFirebaseConfigured) {
-      setCount(0);
-      return;
-    }
-    const db = getDb();
-    if (!db) return;
-    // 60 is far more than two people will ever leave genuinely unread -
-    // this listener runs on every page via the navbar badge, not just the
-    // watch page, so keeping its window small matters more than for the
-    // chat panel itself.
-    const q = query(collection(db, CHAT_COLLECTION), orderBy("createdAt", "desc"), limit(60));
-    function recompute(docs: { who?: string; createdAt?: Timestamp | null }[]) {
-      const lastRead = getLastRead(whoAmI as "a" | "b");
-      let n = 0;
-      for (const data of docs) {
-        if (data.who === whoAmI) continue;
-        const withToMillis = data.createdAt as unknown as { toMillis?: () => number } | null;
-        const ms = withToMillis && typeof withToMillis.toMillis === "function" ? withToMillis.toMillis() : 0;
-        if (ms > lastRead) n++;
-      }
-      setCount(n);
-    }
-    let latestDocs: { who?: string; createdAt?: Timestamp | null }[] = [];
-    const unsub = onSnapshot(q, (snap) => {
-      latestDocs = snap.docs.map((d) => d.data() as { who?: string; createdAt?: Timestamp | null });
-      recompute(latestDocs);
-    });
-    // Re-run against the last known snapshot the instant this person marks
-    // the chat read (e.g. the overlay just opened), instead of waiting for
-    // the next incoming message to trigger a fresh Firestore event.
-    function onReadEvent() {
-      recompute(latestDocs);
-    }
-    window.addEventListener(READ_EVENT, onReadEvent);
-    return () => {
-      unsub();
-      window.removeEventListener(READ_EVENT, onReadEvent);
-    };
-  }, [whoAmI]);
-
-  return count;
 }

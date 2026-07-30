@@ -33,7 +33,6 @@ import { resolveVideoUrl, hasR2BaseUrl } from "@/lib/r2";
 import { site } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
 import { WatchChat } from "@/components/sections/watch-chat";
-import { useUnreadWatchChatCount } from "@/lib/watch-chat";
 import { usePresenceHeartbeat } from "@/lib/presence";
 import { withBasePath } from "@/lib/base-path";
 import { SnowyEasterEgg } from "@/components/ui/snowy-easter-egg";
@@ -231,7 +230,9 @@ export function WatchRoom() {
   // "" is the sentinel for "no section" since <select> values are strings.
   const [targetSectionId, setTargetSectionId] = useState<string>("");
   const [whoAmI, setWhoAmI] = useState<"a" | "b" | null>(null);
-  const unreadChatCount = useUnreadWatchChatCount();
+  // Reported up by WatchChat itself from the messages it already has
+  // loaded - no separate Firestore listener needed just for this badge.
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [videoError, setVideoError] = useState(false);
   // Chat starts closed - it opens over the player via the toggle button
   // instead of permanently occupying a column next to the video.
@@ -1154,6 +1155,7 @@ export function WatchRoom() {
                       variant="overlay"
                       visible={showChat}
                       onClose={() => setShowChat(false)}
+                      onUnreadChange={setUnreadChatCount}
                     />
                   </motion.div>
 

@@ -9,7 +9,6 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDocs,
   limit,
   onSnapshot,
   orderBy,
@@ -17,12 +16,14 @@ import {
   serverTimestamp,
   updateDoc,
   writeBatch,
+  type DocumentData,
+  type QueryDocumentSnapshot,
   type Timestamp,
 } from "firebase/firestore";
 import { getDb, isFirebaseConfigured } from "@/lib/firebase";
 import { cn } from "@/lib/utils";
 import { withBasePath } from "@/lib/base-path";
-import { CHAT_COLLECTION, markWatchChatRead } from "@/lib/watch-chat";
+import { CHAT_COLLECTION, getLastRead, markWatchChatRead } from "@/lib/watch-chat";
 import { useTypingWriter } from "@/lib/presence";
 
 // A small snapshot of the message being replied to - stored on the reply
@@ -48,10 +49,10 @@ type ChatMessage = {
 // first specifically so this cap keeps the *latest* messages instead of
 // silently freezing the chat once the older messages fill it up.
 // Kept deliberately small (rather than a generous sanity ceiling) because
-// every mount of this component re-reads the whole window from Firestore -
-// older messages stay in the database untouched, they just won't live-load
-// into this view past the cap.
-const MAX_MESSAGES = 300;
+// this listener is billed for its whole result set on the initial load of
+// every session - older messages stay in the database untouched, they
+// just won't live-load into this view past the cap.
+const MAX_MESSAGES = 60;
 
 function formatTime(ts: Timestamp | null): string {
   if (!ts) return "";
@@ -99,6 +100,7 @@ export function WatchChat({
   variant = "panel",
   visible = true,
   onClose,
+  onUnreadChange,
 }: {
   whoAmI: "a" | "b";
   nameA: string;
@@ -122,6 +124,11 @@ export function WatchChat({
   // that breakpoint we need a close control that lives inside the panel
   // itself. Only rendered when provided.
   onClose?: () => void;
+  // Reports the live count of messages from the other person that arrived
+  // after this person's last-read mark, so a parent (e.g. the toggle
+  // button in watch-room.tsx) can badge itself without needing its own
+  // separate Firestore listener on this same collection.
+  onUnreadChange?: (count: number) => void;
 }) {
   const connected = isFirebaseConfigured;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -139,6 +146,10 @@ export function WatchChat({
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  // The raw doc snapshots behind the current `messages` state, kept around
+  // so "Clear chat" can delete exactly what's already loaded instead of
+  // paying for a fresh, unbounded getDocs() over the whole collection.
+  const loadedDocsRef = useRef<QueryDocumentSnapshot<DocumentData>[]>([]);
   const { notifyTyping, stopTyping } = useTypingWriter(whoAmI);
 
   const myName = whoAmI === "a" ? nameA : nameB;
@@ -154,6 +165,7 @@ export function WatchChat({
     // reversed back to chronological order just for display.
     const q = query(collection(db, CHAT_COLLECTION), orderBy("createdAt", "desc"), limit(MAX_MESSAGES));
     const unsub = onSnapshot(q, (snap) => {
+      loadedDocsRef.current = snap.docs;
       setMessages(
         snap.docs
           .map((d) => {
@@ -191,6 +203,27 @@ export function WatchChat({
     if (!visible) return;
     markWatchChatRead(whoAmI);
   }, [whoAmI, messages.length, visible]);
+
+  // Live "unread from the other person" count, derived entirely from the
+  // messages this component already has loaded - no separate listener
+  // needed just to keep a badge number up to date. Zero while visible
+  // (nothing to badge, and everything just got marked read above).
+  useEffect(() => {
+    if (!onUnreadChange) return;
+    if (visible) {
+      onUnreadChange(0);
+      return;
+    }
+    const lastRead = getLastRead(whoAmI);
+    let count = 0;
+    for (const m of messages) {
+      if (m.who === whoAmI) continue;
+      const withToMillis = m.createdAt as unknown as { toMillis?: () => number } | null;
+      const ms = withToMillis && typeof withToMillis.toMillis === "function" ? withToMillis.toMillis() : 0;
+      if (ms > lastRead) count++;
+    }
+    onUnreadChange(count);
+  }, [messages, whoAmI, visible, onUnreadChange]);
 
   async function handleSend(e: FormEvent) {
     e.preventDefault();
@@ -307,10 +340,15 @@ export function WatchChat({
     }
     const db = getDb();
     if (!db) return;
-    const snap = await getDocs(collection(db, CHAT_COLLECTION));
+    // Delete the docs this component already has loaded via its live
+    // listener (everything currently visible, up to MAX_MESSAGES) rather
+    // than issuing a fresh getDocs() over the whole collection - that
+    // used to mean "Clear chat" re-read every message ever sent, no
+    // matter how much history had piled up, every single time it ran.
+    const docs = loadedDocsRef.current;
+    if (docs.length === 0) return;
     // Firestore batches top out at 500 writes; chunk just in case a chat
     // ever genuinely grows past that.
-    const docs = snap.docs;
     for (let i = 0; i < docs.length; i += 450) {
       const batch = writeBatch(db);
       docs.slice(i, i + 450).forEach((d) => batch.delete(d.ref));
