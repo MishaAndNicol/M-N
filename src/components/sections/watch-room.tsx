@@ -34,6 +34,7 @@ import { WatchChat } from "@/components/sections/watch-chat";
 import { useUnreadWatchChatCount } from "@/lib/watch-chat";
 import { usePresenceHeartbeat } from "@/lib/presence";
 import { withBasePath } from "@/lib/base-path";
+import { SnowyEasterEgg } from "@/components/ui/snowy-easter-egg";
 import Image from "next/image";
 
 // A single entry in the shared playlist - just enough to show a title in
@@ -620,7 +621,8 @@ export function WatchRoom() {
   }, [room.videoUrl, room.syncBy, connected, myName]);
 
   return (
-    <div className="space-y-8">
+    <div className="relative space-y-8">
+      <SnowyEasterEgg />
       {!connected && (
         <div className="rounded-[var(--season-radius-sm)] border border-dashed border-line bg-thread/[0.04] p-4 text-sm text-mist dark:border-line-dark">
           Firebase isn&apos;t connected yet, so this runs in local-only preview mode - the film picker and

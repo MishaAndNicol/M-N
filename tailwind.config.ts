@@ -6,17 +6,14 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Day face - "Девятый вал": deep sea-ink used for text, the
-        // colour of a wave trough in shadow, not a neutral UI black.
-        ink: "#1B2420",
-        // Day face background - foam and dawn-lit storm haze, not a
-        // clean paper white. Slightly golden-grey, like spray catching
-        // the first light.
-        paper: "#EDE6D3",
-        mist: "#6E796E",
-        // Foam hairline - pale, faintly golden, the line where spray
-        // has dried on a rope or a rail.
-        line: "#DED2AC",
+        // Day face - near-black text for a crisp scarlet-and-white look.
+        ink: "#201412",
+        // Day face background - clean white, barely warmed, so the
+        // scarlet accent reads clearly against it.
+        paper: "#FFF9F8",
+        mist: "#7A6664",
+        // Pale, faintly rose hairline - not gold anymore.
+        line: "#F0D8D5",
         // Cool deep-cobalt hairline in dark mode - Van Gogh's swirling
         // ultramarine sky, not a darker shade of the foam line. Kept as
         // an RGB triplet so opacity modifiers (border-line-dark/40, etc.)
@@ -34,7 +31,7 @@ const config: Config = {
         // variables below.
         thread: "rgb(var(--accent-rgb) / <alpha-value>)",
         "thread-soft": "rgb(var(--accent-soft-rgb) / <alpha-value>)",
-        ember: "#C1502F",
+        ember: "#C13328",
       },
       fontFamily: {
         // Points at a CSS variable that itself switches with the theme

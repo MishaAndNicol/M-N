@@ -51,7 +51,7 @@ export function ThreadCanvas() {
     const dotColor = isDark ? "230,230,230" : "233,242,232";
     // White (dark) / dawn-gold (light) - kept in sync with --accent-rgb
     // in globals.css.
-    const accentColor = isDark ? "255,255,255" : "199,138,54";
+    const accentColor = isDark ? "196,168,227" : "193,51,40";
     // Per-point twinkle phase (dark) / swell phase (light).
     const twinkle = points.map(() => Math.random() * Math.PI * 2);
     const draw = () => {

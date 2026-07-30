@@ -5,26 +5,24 @@
 @layer base {
   :root {
     color-scheme: light;
-    /* "Девятый вал" - dawn gold breaking through the storm clouds over a
-       turbulent teal sea. RGB triplets (not hex) so Tailwind's /opacity
-       modifiers - bg-thread/10, border-thread/[0.06], etc. - keep working
-       unchanged across the whole app; only the values here change. */
-    --accent-rgb: 199 138 54;
-    --accent-soft-rgb: 74 108 100;
-    /* Foam hairline - divider/border color in light mode. */
-    --line-dark-rgb: 222 210 172;
+    /* Light mode: scarlet-and-white palette (Misha's colors). RGB
+       triplets (not hex) so Tailwind's /opacity modifiers -
+       bg-thread/10, border-thread/[0.06], etc. - keep working unchanged
+       across the whole app; only the values here change. */
+    --accent-rgb: 193 51 40;
+    --accent-soft-rgb: 120 40 34;
+    /* Warm pale-red hairline - divider/border color in light mode. */
+    --line-dark-rgb: 234 198 194;
     --font-display: var(--font-playfair);
   }
   .dark {
     color-scheme: dark;
-    /* Dark mode is the exact same design as light mode, just recolored
-       to black/white/grey instead of the warm gold-and-teal palette -
-       no separate theme, no different fonts or shapes, only the color
-       values below change. */
-    --accent-rgb: 255 255 255;
-    --accent-soft-rgb: 190 190 190;
-    /* Grey hairline instead of the light mode's golden foam line. */
-    --line-dark-rgb: 70 70 70;
+    /* Dark mode: pastel purple palette (Nicol's colors). Same shapes,
+       fonts and layout as light mode - only the accent recolors. */
+    --accent-rgb: 196 168 227;
+    --accent-soft-rgb: 150 120 190;
+    /* Soft violet-grey hairline instead of the light mode's red one. */
+    --line-dark-rgb: 74 62 92;
     /* Same display face as light mode - dark mode isn't a different
        typographic voice, just a different palette. */
     --font-display: var(--font-playfair);
@@ -39,33 +37,30 @@
     font-feature-settings: "ss01" 1, "cv01" 1;
   }
 
-  /* Light mode is a stormy sea at first light - "Девятый вал": a fine
-     turbulence texture retinted teal-foam instead of paper fibre, a
-     warm gold crack of dawn breaking through cloud at the top, a deep
-     teal-green swell rising from below, and faint diagonal foam
-     striations standing in for wave-crest brushwork. Dark mode renders
-     the exact same texture/layout - same turbulence grain, same
-     diagonal striations, same two glows top and bottom - just recolored
-     to white-on-black instead of gold-on-teal, so it reads as a
-     black-and-white version of the same image rather than a different
-     scene. */
+  /* Light mode: crisp white ground with a scarlet glow top and bottom -
+     Misha's color. Same fine turbulence grain and diagonal hairline
+     striations as before, just recolored from gold/teal to red/white.
+     Dark mode renders the exact same texture/layout - same grain, same
+     striations, same two glows top and bottom - just recolored to a
+     pastel purple-on-black palette (Nicol's color) instead, so both
+     themes read as the same underlying scene in different colors. */
   body {
     background-image:
-      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 0.30  0 0 0 0 0.38  0 0 0 0 0.36  0 0 0 0.045 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
-      repeating-linear-gradient(98deg, rgba(255,252,240,0.05) 0px, rgba(255,252,240,0.05) 1px, transparent 1px, transparent 15px),
-      radial-gradient(ellipse 75% 42% at 50% -6%, rgba(199, 138, 54, 0.20), transparent 70%),
-      radial-gradient(ellipse 90% 60% at 50% 112%, rgba(27, 58, 53, 0.30), transparent 65%);
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 0.30  0 0 0 0 0.05  0 0 0 0 0.04  0 0 0 0.035 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
+      repeating-linear-gradient(98deg, rgba(193,51,40,0.04) 0px, rgba(193,51,40,0.04) 1px, transparent 1px, transparent 15px),
+      radial-gradient(ellipse 75% 42% at 50% -6%, rgba(193, 51, 40, 0.16), transparent 70%),
+      radial-gradient(ellipse 90% 60% at 50% 112%, rgba(193, 51, 40, 0.10), transparent 65%);
     background-attachment: fixed;
   }
   .dark body {
     background-image:
-      /* same fractal-noise grain as light mode, recolored to white */
-      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.05 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
+      /* same fractal-noise grain as light mode, recolored to pastel purple */
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 0.77  0 0 0 0 0.66  0 0 0 0 0.89  0 0 0 0.05 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
       /* same diagonal hairline striations as light mode, recolored */
-      repeating-linear-gradient(98deg, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 1px, transparent 1px, transparent 15px),
-      /* same top/bottom glow placement as light mode, white/grey instead of gold/teal */
-      radial-gradient(ellipse 75% 42% at 50% -6%, rgba(255, 255, 255, 0.10), transparent 70%),
-      radial-gradient(ellipse 90% 60% at 50% 112%, rgba(255, 255, 255, 0.06), transparent 65%);
+      repeating-linear-gradient(98deg, rgba(196,168,227,0.05) 0px, rgba(196,168,227,0.05) 1px, transparent 1px, transparent 15px),
+      /* same top/bottom glow placement as light mode, pastel purple instead of red */
+      radial-gradient(ellipse 75% 42% at 50% -6%, rgba(196, 168, 227, 0.14), transparent 70%),
+      radial-gradient(ellipse 90% 60% at 50% 112%, rgba(196, 168, 227, 0.10), transparent 65%);
     background-attachment: fixed;
   }
 
@@ -84,10 +79,10 @@
     animation: swell-drift 18s ease-in-out infinite;
   }
   body::before {
-    background: radial-gradient(ellipse 60% 30% at 50% 68%, rgba(74, 108, 100, 0.16), transparent 70%);
+    background: radial-gradient(ellipse 60% 30% at 50% 68%, rgba(193, 51, 40, 0.10), transparent 70%);
   }
   .dark body::before {
-    background: radial-gradient(ellipse 60% 30% at 50% 68%, rgba(255, 255, 255, 0.08), transparent 70%);
+    background: radial-gradient(ellipse 60% 30% at 50% 68%, rgba(196, 168, 227, 0.12), transparent 70%);
   }
 
   ::selection {
@@ -149,21 +144,21 @@
      separate visual language. */
   .card-surface {
     @apply rounded-[var(--season-radius)] border border-line bg-white/40;
-    background-image: linear-gradient(180deg, rgba(199, 138, 54, 0.07), transparent 40%);
+    background-image: linear-gradient(180deg, rgba(193, 51, 40, 0.06), transparent 40%);
     box-shadow: 0 20px 40px -32px rgba(27, 36, 32, 0.35);
     transition: box-shadow 0.3s ease, border-color 0.3s ease;
   }
   .card-surface:hover {
-    border-color: rgba(199, 138, 54, 0.4);
+    border-color: rgba(193, 51, 40, 0.35);
   }
   .dark .card-surface {
     @apply border-line-dark bg-white/[0.04];
-    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 40%);
+    background-image: linear-gradient(180deg, rgba(196, 168, 227, 0.08), transparent 40%);
     box-shadow: 0 20px 40px -32px rgba(0, 0, 0, 0.8);
     transition: box-shadow 0.3s ease, border-color 0.3s ease;
   }
   .dark .card-surface:hover {
-    border-color: rgba(255, 255, 255, 0.35);
+    border-color: rgba(196, 168, 227, 0.35);
   }
 }
 
