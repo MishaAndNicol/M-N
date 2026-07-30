@@ -622,7 +622,6 @@ export function WatchRoom() {
 
   return (
     <div className="relative space-y-8">
-      <SnowyEasterEgg />
       {!connected && (
         <div className="rounded-[var(--season-radius-sm)] border border-dashed border-line bg-thread/[0.04] p-4 text-sm text-mist dark:border-line-dark">
           Firebase isn&apos;t connected yet, so this runs in local-only preview mode - the film picker and
@@ -973,6 +972,8 @@ export function WatchRoom() {
                       />
                     )}
                   </video>
+
+                  <SnowyEasterEgg />
 
                   {/* chat + fullscreen toggles - stay in the same corner of
                       the stage whether we're in the normal page layout or

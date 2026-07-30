@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
-// A tiny, easy-to-miss detail for Nicol's cat, Snowy - not a widget, just
-// a paw print sitting quietly in the corner of the watch room. Clicking it
-// reveals one line, then it's gone again. No animation loops, no sound,
-// nothing that competes with the actual film playing above it.
+// A small detail for Nicol's cat, Snowy - a paw print sitting in the
+// corner of the video itself. Clicking it reveals one line, then it's gone
+// again. No animation loops, no sound, nothing that competes with the
+// actual film playing - lives in the top-left of the stage so it doesn't
+// collide with the fullscreen/chat toggles in the top-right.
 const LINES = [
   "Snowy approves this episode. Probably.",
   "Snowy was here first, honestly.",
@@ -19,12 +20,12 @@ export function SnowyEasterEgg() {
   const [line] = useState(() => LINES[Math.floor(Math.random() * LINES.length)]);
 
   return (
-    <div className="pointer-events-none absolute -top-3 right-0 z-10 sm:right-1">
+    <div className="pointer-events-none absolute left-3 top-3 z-20">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label="Snowy"
-        className="pointer-events-auto grid h-7 w-7 place-items-center rounded-full text-thread/40 transition-colors hover:text-thread"
+        className="glass pointer-events-auto grid h-11 w-11 place-items-center rounded-full text-thread shadow-sm transition-transform hover:scale-110"
       >
         <PawIcon />
       </button>
@@ -36,7 +37,7 @@ export function SnowyEasterEgg() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.96 }}
             transition={{ duration: 0.18 }}
-            className="glass pointer-events-auto absolute right-0 top-9 w-56 rounded-[var(--season-radius-sm)] border border-line px-3 py-2 text-xs italic text-mist shadow-lg dark:border-line-dark"
+            className="glass pointer-events-auto absolute left-0 top-14 w-56 rounded-[var(--season-radius-sm)] border border-line px-3 py-2 text-xs italic text-mist shadow-lg dark:border-line-dark"
           >
             {line}
           </motion.div>
@@ -48,7 +49,7 @@ export function SnowyEasterEgg() {
 
 function PawIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-7 w-7">
       <circle cx="7" cy="8" r="2.1" />
       <circle cx="12" cy="6" r="2.1" />
       <circle cx="17" cy="8" r="2.1" />
