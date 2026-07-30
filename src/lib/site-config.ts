@@ -29,6 +29,7 @@ export const site = {
       cityCountry: "South Korea",
       university: "Sungkyunkwan University",
       major: "Software Engineering",
+      timezone: "Asia/Seoul",
       languages: ["Russian", "English", "Korean"],
       hobbies: [
         "Cooking",
@@ -48,6 +49,7 @@ export const site = {
       cityCountry: "Czech Republic",
       note: "Currently studying and interning in the Czech Republic",
       major: "Law",
+      timezone: "Europe/Prague",
       languages: ["English", "Slovak"],
       hobbies: [
         "Reads a couple of ongoing translated web-novel series",

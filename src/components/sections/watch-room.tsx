@@ -18,6 +18,8 @@ import {
   Folder,
   SkipForward,
   Captions,
+  Sun,
+  Moon,
 } from "lucide-react";
 import {
   doc,
@@ -102,6 +104,35 @@ const WHOAMI_KEY = "twostory-watch-whoami";
 // If a remote update and our local playback position differ by more than
 // this, we jump instead of letting it drift back in sync on its own.
 const RESYNC_THRESHOLD_SECONDS = 1.5;
+// Per-device "continue where you left off" - keyed by video URL, separate
+// from the shared Firestore sync state. This is deliberately local-only:
+// if your partner is already further along in the episode, the normal
+// remote-sync effect (RESYNC_THRESHOLD_SECONDS) corrects it right after,
+// so resuming here only ever wins when nobody's actively ahead of you.
+const PROGRESS_KEY_PREFIX = "twostory-watch-progress:";
+// Below this we just start from the beginning - not worth "resuming" a
+// couple of seconds in.
+const MIN_RESUMABLE_SECONDS = 5;
+
+function readLocalProgress(videoUrl: string): number | null {
+  try {
+    const raw = window.localStorage.getItem(PROGRESS_KEY_PREFIX + videoUrl);
+    if (!raw) return null;
+    const seconds = parseFloat(raw);
+    return Number.isFinite(seconds) && seconds > MIN_RESUMABLE_SECONDS ? seconds : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalProgress(videoUrl: string, seconds: number) {
+  try {
+    window.localStorage.setItem(PROGRESS_KEY_PREFIX + videoUrl, String(Math.floor(seconds)));
+  } catch {
+    // Storage full/unavailable (private browsing, etc.) - resuming is a
+    // nicety, not worth surfacing an error for.
+  }
+}
 
 // Turns pasted text (one episode per line) into Episode objects. A line can
 // mix separator styles - "Title - video.mkv | subtitle.vtt" (dash for the
@@ -237,7 +268,35 @@ export function WatchRoom() {
   const photoA = people[0]?.photo;
   const photoB = people[1]?.photo;
   const myName = whoAmI === "a" ? nameA : whoAmI === "b" ? nameB : "";
+  const otherName = whoAmI === "a" ? nameB : whoAmI === "b" ? nameA : "";
+  const otherTimezone = whoAmI === "a" ? people[1]?.timezone : whoAmI === "b" ? people[0]?.timezone : undefined;
   usePresenceHeartbeat(whoAmI);
+
+  // Small ticking clock for the partner-local-time widget - a minute
+  // resolution is plenty, so this only re-renders once a minute rather
+  // than every second.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(interval);
+  }, []);
+  const partnerTime = useMemo(() => {
+    if (!otherTimezone) return null;
+    try {
+      const time = now.toLocaleTimeString([], {
+        timeZone: otherTimezone,
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      const hour = parseInt(
+        now.toLocaleString("en-US", { timeZone: otherTimezone, hour: "2-digit", hour12: false }),
+        10
+      );
+      return { time, isDaytime: hour >= 7 && hour < 20 };
+    } catch {
+      return null;
+    }
+  }, [now, otherTimezone]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(WHOAMI_KEY);
@@ -555,6 +614,7 @@ export function WatchRoom() {
     const video = videoRef.current;
     if (!video) return;
     lastPeriodicPositionRef.current = video.currentTime;
+    if (room.videoUrl) writeLocalProgress(room.videoUrl, video.currentTime);
     writeRoom({
       playing: false,
       positionSeconds: video.currentTime,
@@ -570,6 +630,7 @@ export function WatchRoom() {
     const video = videoRef.current;
     if (!video) return;
     lastPeriodicPositionRef.current = video.currentTime;
+    if (room.videoUrl) writeLocalProgress(room.videoUrl, video.currentTime);
     writeRoom({
       positionSeconds: video.currentTime,
       playing: !video.paused,
@@ -619,6 +680,41 @@ export function WatchRoom() {
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room.videoUrl, room.syncBy, connected, myName]);
+
+  // Separate from the drift-correction heartbeat above (which only runs
+  // for whoever's currently "driving" sync) - this one saves to
+  // localStorage on *every* device, every few seconds, purely so that if
+  // this tab gets closed mid-episode, reopening it lands back near where
+  // it was. Cheap (no network) and independent of Firestore/sync entirely.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !room.videoUrl) return;
+    const interval = setInterval(() => {
+      if (video.paused) return;
+      writeLocalProgress(room.videoUrl, video.currentTime);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [room.videoUrl]);
+
+  // Resumes this device's last position for the episode that just loaded -
+  // but ONLY when nobody else is currently driving playback. `loadedmetadata`
+  // fires once the browser has buffered enough to know duration/seekability,
+  // which is almost always *after* the remote-sync effect above has already
+  // run (that effect is synchronous right after mount; this is gated on a
+  // network fetch). So if the partner owns `room.syncBy`, their position has
+  // already been applied by the time we get here - overwriting it with a
+  // stale local value would silently fight it with nothing to correct the
+  // drift until their next play/pause/seek. Only apply the local resume when
+  // we're the one who last drove sync (or nobody has yet), where Firestore's
+  // own position is already ours anyway and there's no partner state to
+  // clobber.
+  function handleLoadedMetadata() {
+    const video = videoRef.current;
+    if (!video || !room.videoUrl) return;
+    if (room.syncBy && room.syncBy !== myName) return;
+    const saved = readLocalProgress(room.videoUrl);
+    if (saved !== null) video.currentTime = saved;
+  }
 
   return (
     <div className="relative space-y-8">
@@ -956,6 +1052,7 @@ export function WatchRoom() {
                     // the R2 bucket's CORS policy to allow it too.
                     crossOrigin={subtitleTrackUrl ? "anonymous" : undefined}
                     className="h-full w-full"
+                    onLoadedMetadata={handleLoadedMetadata}
                     onPlay={handleLocalPlay}
                     onPause={handleLocalPause}
                     onSeeked={handleLocalSeeked}
@@ -974,6 +1071,24 @@ export function WatchRoom() {
                   </video>
 
                   <SnowyEasterEgg />
+
+                  {/* small "what time is it for them" widget - just enough
+                      to tell at a glance whether it's morning or the middle
+                      of the night on the other side, without doing the
+                      timezone math yourself. Mirrors the corner styling of
+                      the fullscreen/chat buttons opposite it. */}
+                  {partnerTime && (
+                    <div className="absolute left-3 top-3 z-20 flex items-center gap-1.5 rounded-full bg-black/50 px-3 py-2 text-xs text-white backdrop-blur">
+                      {partnerTime.isDaytime ? (
+                        <Sun className="h-3.5 w-3.5 shrink-0" />
+                      ) : (
+                        <Moon className="h-3.5 w-3.5 shrink-0" />
+                      )}
+                      <span className="whitespace-nowrap">
+                        {otherName}: {partnerTime.time}
+                      </span>
+                    </div>
+                  )}
 
                   {/* chat + fullscreen toggles - stay in the same corner of
                       the stage whether we're in the normal page layout or
@@ -1055,13 +1170,6 @@ export function WatchRoom() {
                     )}
                   </AnimatePresence>
                 </div>
-
-                <p className="text-xs text-mist">
-                  Play, pause и перемотка синхронизируются автоматически на обеих сторонах — не нужно жать
-                  play одновременно вручную. Если кто-то отстаёт больше чем на пару секунд (например, после
-                  разрыва соединения), плеер сам подстроит позицию при следующем действии партнёра. Кнопки
-                  в углу — «на весь экран» и чат поверх видео; чат остаётся доступен и в полноэкранном режиме.
-                </p>
               </div>
             ) : (
               <div className="rounded-[var(--season-radius-sm)] border border-dashed border-line p-10 text-center text-sm text-mist dark:border-line-dark">

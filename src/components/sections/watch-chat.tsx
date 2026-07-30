@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Pencil, Trash2, Check, X as XIcon } from "lucide-react";
+import { Send, Pencil, Trash2, Check, X as XIcon, Reply as ReplyIcon } from "lucide-react";
 import {
   addDoc,
   collection,
@@ -25,12 +25,22 @@ import { withBasePath } from "@/lib/base-path";
 import { CHAT_COLLECTION, markWatchChatRead } from "@/lib/watch-chat";
 import { useTypingWriter } from "@/lib/presence";
 
+// A small snapshot of the message being replied to - stored on the reply
+// itself (not just an id) so the quoted preview keeps working even if the
+// original message later gets edited or deleted.
+type ReplySnapshot = {
+  id: string;
+  text: string;
+  who: "a" | "b";
+};
+
 type ChatMessage = {
   id: string;
   text: string;
   who: "a" | "b";
   createdAt: Timestamp | null;
   edited?: boolean;
+  replyTo?: ReplySnapshot | null;
 };
 
 // Firestore's `limit()` just takes the first N docs matching the sort
@@ -120,7 +130,15 @@ export function WatchChat({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
+  // The message currently being replied to, if any - shown as a "replying
+  // to..." bar above the input, and attached to the next message sent.
+  const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
+  // Briefly highlighted when a quoted reply preview is tapped, so jumping
+  // to the original message is easy to spot in a long list.
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const { notifyTyping, stopTyping } = useTypingWriter(whoAmI);
 
   const myName = whoAmI === "a" ? nameA : nameB;
@@ -140,12 +158,17 @@ export function WatchChat({
         snap.docs
           .map((d) => {
             const data = d.data() as Partial<ChatMessage>;
+            const replyTo = data.replyTo as Partial<ReplySnapshot> | null | undefined;
             return {
               id: d.id,
               text: data.text ?? "",
               who: data.who === "b" ? "b" : "a",
               createdAt: (data.createdAt as Timestamp | undefined) ?? null,
               edited: Boolean(data.edited),
+              replyTo:
+                replyTo && replyTo.id && typeof replyTo.text === "string"
+                  ? { id: replyTo.id, text: replyTo.text, who: replyTo.who === "b" ? "b" : "a" }
+                  : null,
             } satisfies ChatMessage;
           })
           .reverse()
@@ -175,14 +198,25 @@ export function WatchChat({
     if (!text) return;
     stopTyping();
 
+    const replySnapshot: ReplySnapshot | null = replyingTo
+      ? { id: replyingTo.id, text: replyingTo.text, who: replyingTo.who }
+      : null;
+
     if (!connected) {
       // Local-only preview: message just appears in this browser tab so
       // the UI is fully explorable before Firebase is configured.
       setMessages((prev) => [
         ...prev,
-        { id: `local-${Date.now()}`, text, who: whoAmI, createdAt: new Date() as unknown as Timestamp },
+        {
+          id: `local-${Date.now()}`,
+          text,
+          who: whoAmI,
+          createdAt: new Date() as unknown as Timestamp,
+          replyTo: replySnapshot,
+        },
       ]);
       setDraft("");
+      cancelReply();
       return;
     }
 
@@ -194,16 +228,39 @@ export function WatchChat({
         text,
         who: whoAmI,
         createdAt: serverTimestamp(),
+        replyTo: replySnapshot,
       });
       setDraft("");
+      cancelReply();
     } finally {
       setSending(false);
     }
   }
 
   function startEdit(m: ChatMessage) {
+    cancelReply();
     setEditingId(m.id);
     setEditDraft(m.text);
+  }
+
+  function startReply(m: ChatMessage) {
+    cancelEdit();
+    setReplyingTo(m);
+    inputRef.current?.focus();
+  }
+
+  function cancelReply() {
+    setReplyingTo(null);
+  }
+
+  // Jumps to (and briefly highlights) the original message a reply is
+  // quoting, if it's still loaded in the current window of messages.
+  function scrollToMessage(id: string) {
+    const el = messageRefs.current.get(id);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlightedId(id);
+    setTimeout(() => setHighlightedId((current) => (current === id ? null : current)), 1500);
   }
 
   function cancelEdit() {
@@ -339,18 +396,21 @@ export function WatchChat({
           {messages.map((m) => {
             const mine = m.who === whoAmI;
             const isEditing = editingId === m.id;
-            return (
-              <motion.div
-                key={m.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                className={cn("group flex items-end gap-1.5", mine ? "justify-end" : "justify-start")}
-              >
-                {!mine && <Avatar name={otherName} photo={otherPhoto} size={22} />}
-
-                {mine && !isEditing && (
-                  <span className="mb-1 flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+            const isHighlighted = highlightedId === m.id;
+            const actions = (
+              <span className="mb-1 flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                <button
+                  onClick={() => startReply(m)}
+                  title="Reply"
+                  className={cn(
+                    "grid h-6 w-6 place-items-center rounded-full transition-colors",
+                    overlay ? "text-white/50 hover:bg-white/10 hover:text-white" : "text-mist hover:bg-thread/10 hover:text-thread"
+                  )}
+                >
+                  <ReplyIcon className="h-3 w-3" />
+                </button>
+                {mine && (
+                  <>
                     <button
                       onClick={() => startEdit(m)}
                       title="Edit message"
@@ -371,8 +431,35 @@ export function WatchChat({
                     >
                       <Trash2 className="h-3 w-3" />
                     </button>
-                  </span>
+                  </>
                 )}
+              </span>
+            );
+            return (
+              <motion.div
+                key={m.id}
+                ref={(el) => {
+                  if (el) messageRefs.current.set(m.id, el);
+                  else messageRefs.current.delete(m.id);
+                }}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{
+                  opacity: 1,
+                  y: 0,
+                  backgroundColor: isHighlighted
+                    ? "rgba(255, 255, 255, 0.12)"
+                    : "rgba(255, 255, 255, 0)",
+                }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ backgroundColor: { duration: 0.3 } }}
+                className={cn(
+                  "group flex items-end gap-1.5 rounded-2xl",
+                  mine ? "justify-end" : "justify-start"
+                )}
+              >
+                {!mine && <Avatar name={otherName} photo={otherPhoto} size={22} />}
+
+                {!isEditing && actions}
 
                 <div
                   className={cn(
@@ -405,6 +492,23 @@ export function WatchChat({
                     </div>
                   ) : (
                     <>
+                      {m.replyTo && (
+                        <button
+                          onClick={() => scrollToMessage(m.replyTo!.id)}
+                          title="Jump to original message"
+                          className={cn(
+                            "mb-1.5 block w-full rounded-lg border-l-2 px-2 py-1 text-left text-xs opacity-80 transition-opacity hover:opacity-100",
+                            mine
+                              ? "border-white/50 bg-black/10 dark:border-black/40 dark:bg-black/5"
+                              : "border-thread/60 bg-black/5 dark:bg-white/5"
+                          )}
+                        >
+                          <span className="block font-medium">
+                            {m.replyTo.who === "a" ? nameA : nameB}
+                          </span>
+                          <span className="line-clamp-2 break-words">{m.replyTo.text}</span>
+                        </button>
+                      )}
                       <p className="whitespace-pre-wrap break-words">{m.text}</p>
                       {(m.createdAt || m.edited) && (
                         <p className={cn("mt-1 text-[10px] opacity-60", mine ? "text-right" : "text-left")}>
@@ -422,14 +526,41 @@ export function WatchChat({
         </AnimatePresence>
       </div>
 
+      {replyingTo && (
+        <div
+          className={cn(
+            "flex items-center gap-2 border-t px-4 pt-3 text-xs",
+            overlay ? "border-white/10 text-white/70" : "border-line text-mist dark:border-line-dark"
+          )}
+        >
+          <ReplyIcon className="h-3 w-3 shrink-0" />
+          <span className="min-w-0 flex-1 truncate">
+            Replying to <span className="font-medium">{replyingTo.who === "a" ? nameA : nameB}</span>:{" "}
+            {replyingTo.text}
+          </span>
+          <button
+            onClick={cancelReply}
+            aria-label="Cancel reply"
+            className={cn(
+              "grid h-5 w-5 shrink-0 place-items-center rounded-full transition-colors",
+              overlay ? "hover:bg-white/10 hover:text-white" : "hover:bg-thread/10 hover:text-thread"
+            )}
+          >
+            <XIcon className="h-3 w-3" />
+          </button>
+        </div>
+      )}
+
       <form
         onSubmit={handleSend}
         className={cn(
           "flex items-center gap-2 border-t p-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
-          overlay ? "border-white/10" : "border-line dark:border-line-dark"
+          overlay ? "border-white/10" : "border-line dark:border-line-dark",
+          replyingTo && "border-t-0 pt-2"
         )}
       >
         <input
+          ref={inputRef}
           value={draft}
           onChange={(e) => {
             setDraft(e.target.value);
