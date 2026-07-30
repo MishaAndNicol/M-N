@@ -1075,10 +1075,11 @@ export function WatchRoom() {
                   {/* small "what time is it for them" widget - just enough
                       to tell at a glance whether it's morning or the middle
                       of the night on the other side, without doing the
-                      timezone math yourself. Mirrors the corner styling of
-                      the fullscreen/chat buttons opposite it. */}
+                      timezone math yourself. Centered on the top edge so it
+                      doesn't collide with Snowy's paw icon (top-left) or the
+                      fullscreen/chat toggles (top-right). */}
                   {partnerTime && (
-                    <div className="absolute left-3 top-3 z-20 flex items-center gap-1.5 rounded-full bg-black/50 px-3 py-2 text-xs text-white backdrop-blur">
+                    <div className="absolute left-1/2 top-3 z-20 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-black/50 px-3 py-2 text-xs text-white backdrop-blur">
                       {partnerTime.isDaytime ? (
                         <Sun className="h-3.5 w-3.5 shrink-0" />
                       ) : (
