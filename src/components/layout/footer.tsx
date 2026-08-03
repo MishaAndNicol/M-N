@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Github } from "lucide-react";
+import { site } from "@/lib/site-config";
 
 export function Footer() {
   return (
@@ -7,7 +8,10 @@ export function Footer() {
       <div className="container-page flex flex-col items-start justify-between gap-6 py-12 md:flex-row md:items-center">
         <div>
           <p className="font-display italic">two story</p>
-          <p className="mt-1 text-sm text-mist">Two cities. One thread.</p>
+          <p className="mt-1 text-sm text-mist">{site.footerTagline}</p>
+          {site.footerTaglineLatin && (
+            <p className="mt-0.5 text-xs italic text-mist/70">{site.footerTaglineLatin}</p>
+          )}
         </div>
         <div className="flex items-center gap-4 text-mist">
           <Link href="https://github.com" aria-label="GitHub" className="transition-colors hover:text-thread">

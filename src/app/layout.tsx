@@ -6,6 +6,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { CursorGlow } from "@/components/layout/cursor-glow";
 import { SeasonAtmosphere } from "@/components/layout/season-atmosphere";
+import { ReloadToHome } from "@/components/layout/reload-to-home";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -44,6 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <body className={`${playfair.variable} ${workSans.variable} ${mono.variable}`}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+          <ReloadToHome />
           <SeasonAtmosphere />
           <CursorGlow />
           <Navbar />

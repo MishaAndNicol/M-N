@@ -4,12 +4,14 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { ArrowDown } from "lucide-react";
 import { ThreadCanvas } from "@/components/ui/thread-canvas";
+import { HeroAmbientAudio } from "@/components/ui/hero-ambient-audio";
 import { site } from "@/lib/site-config";
 
 export function Hero() {
   return (
     <section className="relative flex min-h-[100svh] items-center overflow-hidden">
       <ThreadCanvas />
+      <HeroAmbientAudio />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-paper dark:to-void" />
 
       <div className="container-page relative z-10">
@@ -35,6 +37,17 @@ export function Hero() {
             </motion.span>
           ))}
         </h1>
+
+        {site.hero.titleLatin && (
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.55 }}
+            className="mt-3 max-w-3xl font-display text-lg italic text-mist md:text-xl"
+          >
+            {site.hero.titleLatin}
+          </motion.p>
+        )}
 
         <motion.div
           initial={{ opacity: 0, y: 16 }}

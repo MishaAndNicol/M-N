@@ -19,7 +19,22 @@ export const site = {
 
   hero: {
     title: "Two countries. Two different lives. One conversation.",
+    // Best-effort Latin translation, not written by a native Latinist -
+    // meant as a starting draft for Nicol to correct/refine herself,
+    // since Latin is her thing, not a claim that this is polished Latin.
+    titleLatin: "Duae patriae. Duae vitae diversae. Unus sermo.",
   },
+
+  footerTagline: "Two cities. One thread.",
+  // Same caveat as hero.titleLatin above - draft, not verified Latin.
+  footerTaglineLatin: "Duae urbes. Unum filum.",
+
+  // Optional ambient track for the homepage hero only - plays while
+  // someone's on "/", stops the moment they navigate anywhere else.
+  // Empty string until a real file exists (e.g. a Suno piece), following
+  // the same "no invented content" rule as the rest of this file - the
+  // player component just doesn't render its toggle when this is blank.
+  heroAudioUrl: "",
 
   people: [
     {
