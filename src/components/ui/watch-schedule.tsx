@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, Bell } from "lucide-react";
+import { ChevronDown, Bell, BellOff, BellRing } from "lucide-react";
 import {
   addDoc,
   collection,
@@ -222,8 +222,17 @@ export function WatchSchedule({
   const [draftHour, setDraftHour] = useState(19);
   const [draftMinute, setDraftMinute] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">("default");
   const seenPendingIds = useRef<Set<string>>(new Set());
   const askedPermissionRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setNotifPermission("unsupported");
+      return;
+    }
+    setNotifPermission(Notification.permission);
+  }, []);
 
   // Rolling window: "today + next 6 days" in *my own* timezone, read
   // fresh on every mount - so each side always sees calendar days as
@@ -261,15 +270,22 @@ export function WatchSchedule({
     return () => unsub();
   }, [connected]);
 
-  // Ask for browser-notification permission once there's actually
-  // something to notify about - not on page load, so it isn't a random
-  // permission prompt with no context behind it.
+  // Ask for browser-notification permission - either opportunistically the
+  // first time someone proposes a time, or explicitly via the bell button
+  // in the header. A real click/tap is required for the browser to allow
+  // the prompt at all, so both paths only ever fire from a user gesture.
   function ensureNotificationPermission() {
     if (typeof window === "undefined" || !("Notification" in window)) return;
     if (Notification.permission === "default" && !askedPermissionRef.current) {
       askedPermissionRef.current = true;
-      Notification.requestPermission();
+      Notification.requestPermission().then(setNotifPermission);
     }
+  }
+
+  function requestNotifications() {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    askedPermissionRef.current = true;
+    Notification.requestPermission().then(setNotifPermission);
   }
 
   // Whenever a *new* pending proposal from the partner shows up, surface
@@ -352,11 +368,8 @@ export function WatchSchedule({
         )}
       </AnimatePresence>
 
-      <button
-        onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
-      >
-        <span className="flex items-center gap-2 text-sm">
+      <div className="flex w-full items-center justify-between gap-3 px-5 py-4">
+        <button onClick={() => setExpanded((v) => !v)} className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm">
           <span className="font-medium">When are we watching?</span>
           {!expanded && pendingFromPartner && (
             <span className="truncate text-xs text-thread">
@@ -364,9 +377,44 @@ export function WatchSchedule({
               {fmtTime(pendingFromPartner.at.toDate(), myTimezone)} - waiting on you
             </span>
           )}
+        </button>
+        <span className="flex shrink-0 items-center gap-1">
+          {notifPermission !== "unsupported" && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (notifPermission === "default") requestNotifications();
+              }}
+              title={
+                notifPermission === "granted"
+                  ? "Browser notifications are on"
+                  : notifPermission === "denied"
+                    ? "Notifications blocked - enable them for this site in your browser settings"
+                    : "Turn on browser notifications for new suggestions"
+              }
+              className={cn(
+                "grid h-8 w-8 shrink-0 place-items-center rounded-full border transition-colors",
+                notifPermission === "granted"
+                  ? "border-thread text-thread"
+                  : notifPermission === "denied"
+                    ? "border-line text-mist/50"
+                    : "border-line text-mist hover:border-thread hover:text-thread dark:border-line-dark"
+              )}
+            >
+              {notifPermission === "granted" ? (
+                <BellRing className="h-3.5 w-3.5" />
+              ) : notifPermission === "denied" ? (
+                <BellOff className="h-3.5 w-3.5" />
+              ) : (
+                <Bell className="h-3.5 w-3.5" />
+              )}
+            </button>
+          )}
+          <button onClick={() => setExpanded((v) => !v)} className="grid h-8 w-8 place-items-center">
+            <ChevronDown className={cn("h-4 w-4 shrink-0 text-mist transition-transform", expanded && "rotate-180")} />
+          </button>
         </span>
-        <ChevronDown className={cn("h-4 w-4 shrink-0 text-mist transition-transform", expanded && "rotate-180")} />
-      </button>
+      </div>
 
       <AnimatePresence initial={false}>
         {expanded && (
@@ -484,7 +532,15 @@ export function WatchSchedule({
                           {isMine ? "(their time)" : "(your time)"}
                         </p>
                         {p.status === "agreed" ? (
-                          <p className="text-sm text-[#993C1D]">Agreed 🐾</p>
+                          <div>
+                            <p className="mb-2 text-sm text-[#993C1D]">Agreed 🐾</p>
+                            <button
+                              onClick={() => withdraw(p)}
+                              className="rounded-full border border-line px-4 py-1.5 text-sm text-mist hover:border-thread hover:text-thread dark:border-line-dark"
+                            >
+                              Reset - plans changed
+                            </button>
+                          </div>
                         ) : isMine ? (
                           <p className="text-xs text-mist">Waiting on {otherName}...</p>
                         ) : (
