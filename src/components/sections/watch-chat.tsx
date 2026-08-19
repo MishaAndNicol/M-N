@@ -9,12 +9,14 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocs,
   limit,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
   updateDoc,
+  where,
   writeBatch,
   type DocumentData,
   type QueryDocumentSnapshot,
@@ -44,15 +46,16 @@ type ChatMessage = {
   replyTo?: ReplySnapshot | null;
 };
 
-// Firestore's `limit()` just takes the first N docs matching the sort
-// order - it does NOT mean "most recent N". The query below sorts newest
-// first specifically so this cap keeps the *latest* messages instead of
-// silently freezing the chat once the older messages fill it up.
-// Kept deliberately small (rather than a generous sanity ceiling) because
-// this listener is billed for its whole result set on the initial load of
-// every session - older messages stay in the database untouched, they
-// just won't live-load into this view past the cap.
-const MAX_MESSAGES = 60;
+// Two separate caps, not one:
+// - LIVE_MESSAGES_LIMIT is what the onSnapshot listener keeps live-synced,
+//   billed as reads on every page load/reconnect - kept small on purpose.
+// - MAX_TOTAL_MESSAGES is how deep you can scroll back in total, live
+//   window plus everything pulled in via "Show earlier messages" below.
+//   Those older batches are one-time getDocs() calls, not listeners, so
+//   they're billed once when actually requested rather than on every load.
+const LIVE_MESSAGES_LIMIT = 40;
+const MAX_TOTAL_MESSAGES = 300;
+const OLDER_BATCH_SIZE = 60;
 
 function formatTime(ts: Timestamp | null): string {
   if (!ts) return "";
@@ -60,6 +63,22 @@ function formatTime(ts: Timestamp | null): string {
   const date = typeof withToDate.toDate === "function" ? withToDate.toDate() : new Date(ts as unknown as string);
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function mapDoc(d: QueryDocumentSnapshot<DocumentData>): ChatMessage {
+  const data = d.data() as Partial<ChatMessage>;
+  const replyTo = data.replyTo as Partial<ReplySnapshot> | null | undefined;
+  return {
+    id: d.id,
+    text: data.text ?? "",
+    who: data.who === "b" ? "b" : "a",
+    createdAt: (data.createdAt as Timestamp | undefined) ?? null,
+    edited: Boolean(data.edited),
+    replyTo:
+      replyTo && replyTo.id && typeof replyTo.text === "string"
+        ? { id: replyTo.id, text: replyTo.text, who: replyTo.who === "b" ? "b" : "a" }
+        : null,
+  };
 }
 
 // Small round avatar - falls back to an initial-letter circle when no
@@ -143,6 +162,9 @@ export function WatchChat({
   // Briefly highlighted when a quoted reply preview is tapped, so jumping
   // to the original message is easy to spot in a long list.
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [olderMessages, setOlderMessages] = useState<ChatMessage[]>([]);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [hasMoreOlder, setHasMoreOlder] = useState(true);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -150,6 +172,7 @@ export function WatchChat({
   // so "Clear chat" can delete exactly what's already loaded instead of
   // paying for a fresh, unbounded getDocs() over the whole collection.
   const loadedDocsRef = useRef<QueryDocumentSnapshot<DocumentData>[]>([]);
+  const olderDocsRef = useRef<QueryDocumentSnapshot<DocumentData>[]>([]);
   const { notifyTyping, stopTyping } = useTypingWriter(whoAmI);
 
   const myName = whoAmI === "a" ? nameA : nameB;
@@ -161,30 +184,15 @@ export function WatchChat({
     if (!connected) return;
     const db = getDb();
     if (!db) return;
+    setOlderMessages([]);
+    olderDocsRef.current = [];
+    setHasMoreOlder(true);
     // Sorted newest-first so the cap above keeps the latest conversation;
     // reversed back to chronological order just for display.
-    const q = query(collection(db, CHAT_COLLECTION), orderBy("createdAt", "desc"), limit(MAX_MESSAGES));
+    const q = query(collection(db, CHAT_COLLECTION), orderBy("createdAt", "desc"), limit(LIVE_MESSAGES_LIMIT));
     const unsub = onSnapshot(q, (snap) => {
       loadedDocsRef.current = snap.docs;
-      setMessages(
-        snap.docs
-          .map((d) => {
-            const data = d.data() as Partial<ChatMessage>;
-            const replyTo = data.replyTo as Partial<ReplySnapshot> | null | undefined;
-            return {
-              id: d.id,
-              text: data.text ?? "",
-              who: data.who === "b" ? "b" : "a",
-              createdAt: (data.createdAt as Timestamp | undefined) ?? null,
-              edited: Boolean(data.edited),
-              replyTo:
-                replyTo && replyTo.id && typeof replyTo.text === "string"
-                  ? { id: replyTo.id, text: replyTo.text, who: replyTo.who === "b" ? "b" : "a" }
-                  : null,
-            } satisfies ChatMessage;
-          })
-          .reverse()
-      );
+      setMessages(snap.docs.map(mapDoc).reverse());
     });
     return () => unsub();
   }, [connected]);
@@ -224,6 +232,43 @@ export function WatchChat({
     }
     onUnreadChange(count);
   }, [messages, whoAmI, visible, onUnreadChange]);
+
+  const allMessages = useMemo(() => [...olderMessages, ...messages], [olderMessages, messages]);
+
+  async function loadOlderMessages() {
+    if (!connected || loadingOlder || !hasMoreOlder) return;
+    const cursor = olderMessages[0] ?? messages[0];
+    if (!cursor?.createdAt) return;
+    const db = getDb();
+    if (!db) return;
+    const remaining = MAX_TOTAL_MESSAGES - allMessages.length;
+    if (remaining <= 0) {
+      setHasMoreOlder(false);
+      return;
+    }
+    const batchSize = Math.min(OLDER_BATCH_SIZE, remaining);
+    setLoadingOlder(true);
+    const el = listRef.current;
+    const prevScrollHeight = el?.scrollHeight ?? 0;
+    try {
+      const q = query(
+        collection(db, CHAT_COLLECTION),
+        orderBy("createdAt", "desc"),
+        where("createdAt", "<", cursor.createdAt),
+        limit(batchSize)
+      );
+      const snap = await getDocs(q);
+      olderDocsRef.current = [...snap.docs, ...olderDocsRef.current];
+      const fetched = snap.docs.map(mapDoc).reverse();
+      setOlderMessages((prev) => [...fetched, ...prev]);
+      if (snap.docs.length < batchSize) setHasMoreOlder(false);
+    } finally {
+      setLoadingOlder(false);
+      requestAnimationFrame(() => {
+        if (el) el.scrollTop = el.scrollHeight - prevScrollHeight;
+      });
+    }
+  }
 
   async function handleSend(e: FormEvent) {
     e.preventDefault();
@@ -340,26 +385,19 @@ export function WatchChat({
     }
     const db = getDb();
     if (!db) return;
-    // Delete the docs this component already has loaded via its live
-    // listener (everything currently visible, up to MAX_MESSAGES) rather
-    // than issuing a fresh getDocs() over the whole collection - that
-    // used to mean "Clear chat" re-read every message ever sent, no
-    // matter how much history had piled up, every single time it ran.
-    const docs = loadedDocsRef.current;
+    const docs = [...olderDocsRef.current, ...loadedDocsRef.current];
     if (docs.length === 0) return;
-    // Firestore batches top out at 500 writes; chunk just in case a chat
-    // ever genuinely grows past that.
     for (let i = 0; i < docs.length; i += 450) {
       const batch = writeBatch(db);
       docs.slice(i, i + 450).forEach((d) => batch.delete(d.ref));
       await batch.commit();
     }
+    setOlderMessages([]);
+    olderDocsRef.current = [];
+    setHasMoreOlder(false);
   }
 
-  const emptyState = useMemo(
-    () => messages.length === 0,
-    [messages.length]
-  );
+  const emptyState = useMemo(() => allMessages.length === 0, [allMessages.length]);
 
   const overlay = variant === "overlay";
 
@@ -392,7 +430,7 @@ export function WatchChat({
         <div className="flex shrink-0 items-center gap-2">
           <button
             onClick={handleClearChat}
-            disabled={messages.length === 0}
+            disabled={allMessages.length === 0}
             title="Clear entire chat"
             className={cn(
               "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40",
@@ -430,8 +468,24 @@ export function WatchChat({
             No messages yet - say hi while the film loads.
           </div>
         )}
+        {!emptyState && connected && (olderMessages.length > 0 || messages.length >= LIVE_MESSAGES_LIMIT) && hasMoreOlder && (
+          <div className="flex justify-center pb-1">
+            <button
+              onClick={loadOlderMessages}
+              disabled={loadingOlder}
+              className={cn(
+                "rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors disabled:cursor-wait disabled:opacity-60",
+                overlay
+                  ? "border-white/20 text-white/70 hover:border-white/40 hover:text-white"
+                  : "border-line text-mist hover:border-thread/40 hover:text-thread dark:border-line-dark"
+              )}
+            >
+              {loadingOlder ? "Loading…" : "Show earlier messages"}
+            </button>
+          </div>
+        )}
         <AnimatePresence initial={false}>
-          {messages.map((m) => {
+          {allMessages.map((m) => {
             const mine = m.who === whoAmI;
             const isEditing = editingId === m.id;
             const isHighlighted = highlightedId === m.id;

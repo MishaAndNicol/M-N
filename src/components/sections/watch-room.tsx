@@ -36,7 +36,7 @@ import { WatchChat } from "@/components/sections/watch-chat";
 import { usePresenceHeartbeat } from "@/lib/presence";
 import { withBasePath } from "@/lib/base-path";
 import { SnowyEasterEgg } from "@/components/ui/snowy-easter-egg";
-import { WatchSchedule } from "@/components/sections/watch-schedule";
+import { WatchSchedule } from "@/components/ui/watch-schedule";
 import Image from "next/image";
 
 // A single entry in the shared playlist - just enough to show a title in
@@ -272,7 +272,6 @@ export function WatchRoom() {
   const myName = whoAmI === "a" ? nameA : whoAmI === "b" ? nameB : "";
   const otherName = whoAmI === "a" ? nameB : whoAmI === "b" ? nameA : "";
   const otherTimezone = whoAmI === "a" ? people[1]?.timezone : whoAmI === "b" ? people[0]?.timezone : undefined;
-  const myTimezone = whoAmI === "a" ? people[0]?.timezone : whoAmI === "b" ? people[1]?.timezone : undefined;
   usePresenceHeartbeat(whoAmI);
 
   // Small ticking clock for the partner-local-time widget - a minute
@@ -765,10 +764,10 @@ export function WatchRoom() {
         <div className="space-y-8">
           <WatchSchedule
             whoAmI={whoAmI}
-            myName={myName}
-            otherName={otherName}
-            myTimezone={myTimezone}
-            otherTimezone={otherTimezone}
+            nameA={nameA}
+            nameB={nameB}
+            timezoneA={people[0]?.timezone}
+            timezoneB={people[1]?.timezone}
           />
 
           <div className="flex items-center gap-2.5 text-sm text-mist">
