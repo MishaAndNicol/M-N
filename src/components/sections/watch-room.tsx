@@ -36,8 +36,8 @@ import { WatchChat } from "@/components/sections/watch-chat";
 import { usePresenceHeartbeat } from "@/lib/presence";
 import { withBasePath } from "@/lib/base-path";
 import { SnowyEasterEgg } from "@/components/ui/snowy-easter-egg";
-import { WatchSchedule } from "@/components/sections/watch-schedule";
-import { CollapsiblePanel } from "@/components/ui/collapsible-panel";
+import { WatchSchedule } from "@/components/ui/watch-schedule";
+import { CollapsibleCard } from "@/components/ui/collapsible-card";
 import Image from "next/image";
 
 // A single entry in the shared playlist - just enough to show a title in
@@ -191,7 +191,7 @@ function parseBulkLinks(
     const videoUrl = resolveVideoUrl(link);
     if (!videoUrl) {
       errors.push(
-        `Строка ${i + 1}: «${line.slice(0, 60)}» — не похоже на ссылку/ключ R2 (и NEXT_PUBLIC_R2_PUBLIC_BASE_URL не настроен)`
+        `Line ${i + 1}: "${line.slice(0, 60)}" - doesn't look like an R2 link/key (and NEXT_PUBLIC_R2_PUBLIC_BASE_URL isn't set)`
       );
       return;
     }
@@ -199,7 +199,7 @@ function parseBulkLinks(
 
     episodes.push({
       id: `${Date.now()}-${startIndex + i}-${Math.random().toString(36).slice(2, 7)}`,
-      title: title || `Серия ${startIndex + episodes.length + 1}`,
+      title: title || `Episode ${startIndex + episodes.length + 1}`,
       videoUrl,
       subtitleUrl,
       sectionId,
@@ -231,10 +231,10 @@ export function WatchRoom() {
   // Which section new episodes (single "Set" or bulk-add) get filed under.
   // "" is the sentinel for "no section" since <select> values are strings.
   const [targetSectionId, setTargetSectionId] = useState<string>("");
-  // Which section's episode list is showing below the tab strip - lets the
-  // playlist read as one card with a switcher instead of every section's
-  // full episode list stacking on top of each other down the page.
-  const [activePlaylistGroupId, setActivePlaylistGroupId] = useState<string | null>(null);
+  // Which section's episode list is currently shown in the playlist
+  // carousel below - "" means "not chosen yet", resolved to the first
+  // available group once the playlist/sections are known.
+  const [activeGroupId, setActiveGroupId] = useState<string>("");
   const [whoAmI, setWhoAmI] = useState<"a" | "b" | null>(null);
   // Reported up by WatchChat itself from the messages it already has
   // loaded - no separate Firestore listener needed just for this badge.
@@ -276,7 +276,6 @@ export function WatchRoom() {
   const photoB = people[1]?.photo;
   const myName = whoAmI === "a" ? nameA : whoAmI === "b" ? nameB : "";
   const otherName = whoAmI === "a" ? nameB : whoAmI === "b" ? nameA : "";
-  const myTimezone = whoAmI === "a" ? people[0]?.timezone : whoAmI === "b" ? people[1]?.timezone : undefined;
   const otherTimezone = whoAmI === "a" ? people[1]?.timezone : whoAmI === "b" ? people[0]?.timezone : undefined;
   usePresenceHeartbeat(whoAmI);
 
@@ -770,10 +769,10 @@ export function WatchRoom() {
         <div className="space-y-8">
           <WatchSchedule
             whoAmI={whoAmI}
-            myName={myName}
-            otherName={otherName}
-            myTimezone={myTimezone}
-            otherTimezone={otherTimezone}
+            nameA={nameA}
+            nameB={nameB}
+            timezoneA={people[0]?.timezone}
+            timezoneB={people[1]?.timezone}
           />
 
           <div className="flex items-center gap-2.5 text-sm text-mist">
@@ -796,9 +795,10 @@ export function WatchRoom() {
           </div>
 
           {/* set / change film */}
-          <CollapsiblePanel
-            icon={<Film className="h-3.5 w-3.5 shrink-0 text-thread" />}
+          <CollapsibleCard
+            icon={<Film className="h-3.5 w-3.5" />}
             title={room.videoUrl ? "Change the film" : "Pick a film"}
+            subtitle={room.title || undefined}
             defaultOpen={!room.videoUrl}
           >
             <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
@@ -835,13 +835,13 @@ export function WatchRoom() {
               />
             </div>
             {linkError && <p className="mt-3 text-xs text-red-500">{linkError}</p>}
-          </CollapsiblePanel>
+          </CollapsibleCard>
 
           {/* sections - group the playlist instead of one long mixed list */}
-          <CollapsiblePanel
-            icon={<FolderPlus className="h-3.5 w-3.5 shrink-0 text-thread" />}
+          <CollapsibleCard
+            icon={<FolderPlus className="h-3.5 w-3.5" />}
             title="Sections"
-            subtitle={room.sections.length > 0 ? `${room.sections.length}` : undefined}
+            subtitle={room.sections.length ? `${room.sections.length} section(s)` : undefined}
           >
             <div className="flex flex-wrap items-center gap-3">
               <input
@@ -876,13 +876,10 @@ export function WatchRoom() {
                 </select>
               </div>
             )}
-          </CollapsiblePanel>
+          </CollapsibleCard>
 
           {/* bulk-add many episodes at once */}
-          <CollapsiblePanel
-            icon={<ListPlus className="h-3.5 w-3.5 shrink-0 text-thread" />}
-            title="Add a whole season at once"
-          >
+          <CollapsibleCard icon={<ListPlus className="h-3.5 w-3.5" />} title="Add a whole season at once">
             <textarea
               value={bulkInput}
               onChange={(e) => setBulkInput(e.target.value)}
@@ -918,12 +915,12 @@ export function WatchRoom() {
                 ))}
               </div>
             )}
-          </CollapsiblePanel>
+          </CollapsibleCard>
 
-          {/* the playlist itself, grouped into sections and shown one
-              section at a time behind a tab strip - stacking every
-              section's full list on the page instead made the room keep
-              growing taller the more seasons/movies got added. */}
+          {/* the playlist itself, grouped into sections - one section
+              shown at a time behind a tab strip, instead of every group
+              stacking up and pushing the page (and the player) further
+              down as more seasons get added. */}
           {room.playlist.length > 0 &&
             (() => {
               const noSectionId = "__none__";
@@ -943,48 +940,44 @@ export function WatchRoom() {
                   : []),
               ];
 
-              // Default to whichever section holds the episode currently
-              // playing, falling back to the first section - recomputed
-              // whenever the chosen id no longer exists (section deleted)
-              // or nothing's chosen yet.
-              const playingGroupId = groupList.find((g) => g.episodes.some((ep) => ep.videoUrl === room.videoUrl))?.id;
-              const activeId =
-                activePlaylistGroupId && groupList.some((g) => g.id === activePlaylistGroupId)
-                  ? activePlaylistGroupId
-                  : playingGroupId ?? groupList[0]?.id ?? null;
-              const activeGroup = groupList.find((g) => g.id === activeId) ?? null;
+              const active = groupList.find((g) => g.id === activeGroupId) ?? groupList[0];
 
               return (
                 <div className="card-surface p-6">
-                  {/* tab strip - horizontally scrollable so it acts like a
-                      carousel of sections on narrow screens instead of
-                      wrapping into extra rows */}
-                  <div className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1">
+                  {/* tab strip - scrolls horizontally instead of wrapping,
+                      so it stays one compact row no matter how many
+                      seasons/sections exist */}
+                  <div className="mb-4 flex items-center gap-2 overflow-x-auto pb-1">
                     {groupList.map((group) => (
                       <button
                         key={group.id}
-                        type="button"
-                        onClick={() => setActivePlaylistGroupId(group.id)}
+                        onClick={() => setActiveGroupId(group.id)}
                         className={cn(
-                          "flex shrink-0 snap-start items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm transition-colors",
-                          group.id === activeId
+                          "flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm transition-colors",
+                          group.id === active.id
                             ? "border-thread bg-thread/[0.08] text-thread"
                             : "border-line text-mist hover:border-thread hover:text-thread dark:border-line-dark"
                         )}
                       >
-                        <Folder className="h-3.5 w-3.5 shrink-0" />
+                        <Folder className="h-3.5 w-3.5" />
                         {group.title}
                         <span className="text-xs opacity-70">({group.episodes.length})</span>
                       </button>
                     ))}
                   </div>
 
-                  {activeGroup && (
-                    <div className="mt-4">
-                      {activeGroup.id !== noSectionId && (
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={active.id}
+                      initial={{ opacity: 0, x: 12 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -12 }}
+                      transition={{ duration: 0.15 }}
+                    >
+                      {active.id !== noSectionId && (
                         <div className="mb-3 flex justify-end">
                           <button
-                            onClick={() => deleteSection(activeGroup.id)}
+                            onClick={() => deleteSection(active.id)}
                             title="Delete section (keeps its episodes, ungrouped)"
                             className="flex items-center gap-1.5 rounded-full px-2 py-1 text-xs text-mist transition-colors hover:bg-red-500/10 hover:text-red-500"
                           >
@@ -992,8 +985,8 @@ export function WatchRoom() {
                           </button>
                         </div>
                       )}
-                      <ul className="max-h-80 space-y-2 overflow-y-auto pr-1">
-                        {activeGroup.episodes.map((ep, i) => {
+                      <ul className="max-h-[22rem] space-y-2 overflow-y-auto pr-1">
+                        {active.episodes.map((ep, i) => {
                           const isPlaying = ep.videoUrl === room.videoUrl;
                           return (
                             <li
@@ -1009,10 +1002,7 @@ export function WatchRoom() {
                                 <span className="shrink-0 text-xs text-mist">{i + 1}.</span>
                                 <span className="truncate">{ep.title}</span>
                                 {ep.subtitleUrl && (
-                                  <Captions
-                                    className="h-3.5 w-3.5 shrink-0 text-mist"
-                                    aria-label="Has subtitles"
-                                  />
+                                  <Captions className="h-3.5 w-3.5 shrink-0 text-mist" aria-label="Has subtitles" />
                                 )}
                               </span>
                               <span className="flex shrink-0 items-center gap-1.5">
@@ -1035,8 +1025,8 @@ export function WatchRoom() {
                           );
                         })}
                       </ul>
-                    </div>
-                  )}
+                    </motion.div>
+                  </AnimatePresence>
                 </div>
               );
             })()}
@@ -1055,7 +1045,7 @@ export function WatchRoom() {
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-1.5 text-xs text-mist">
                       <Users className="h-3.5 w-3.5" />
-                      {room.syncBy ? `последним управлял: ${room.syncBy}` : "готово к синхронному просмотру"}
+                      {room.syncBy ? `last controlled by: ${room.syncBy}` : "ready for synced viewing"}
                     </div>
                     {nextEpisode && (
                       <button
@@ -1213,8 +1203,8 @@ export function WatchRoom() {
                         exit={{ opacity: 0 }}
                         className="pointer-events-none absolute inset-0 grid place-items-center bg-black/70 p-6 text-center text-sm text-white"
                       >
-                        Не удалось загрузить файл. Проверьте, что объект в R2 доступен публично (Public
-                        Access включён для бакета или объекта) и что ссылка указывает на сам видеофайл.
+                        Couldn&apos;t load the file. Check that the object in R2 is publicly accessible (Public
+                        Access enabled on the bucket or object) and that the link points at the video file itself.
                       </motion.div>
                     )}
                   </AnimatePresence>
