@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Pencil, Trash2, Check, X as XIcon, Reply as ReplyIcon } from "lucide-react";
+import { Send, Pencil, Trash2, Check, X as XIcon, Reply as ReplyIcon, Download } from "lucide-react";
 import {
   addDoc,
   collection,
@@ -370,6 +370,52 @@ export function WatchChat({
     await deleteDoc(doc(db, CHAT_COLLECTION, id));
   }
 
+  const [exporting, setExporting] = useState(false);
+
+  // Exports the *entire* history, not just what's currently loaded in the
+  // UI (which stays capped at MAX_TOTAL_MESSAGES to keep normal usage
+  // cheap). This is a deliberate, occasional action someone clicks, not
+  // something that runs on every page load, so paying for one full
+  // one-time read here is a reasonable trade - it just shouldn't be the
+  // default behavior of opening the chat.
+  async function handleExportChat() {
+    if (!connected || exporting) return;
+    setExporting(true);
+    try {
+      const db = getDb();
+      if (!db) return;
+      const snap = await getDocs(query(collection(db, CHAT_COLLECTION), orderBy("createdAt", "asc")));
+      const lines = snap.docs.map((d) => {
+        const data = d.data() as Partial<ChatMessage>;
+        const who = data.who === "b" ? nameB : nameA;
+        const ts = data.createdAt as Timestamp | undefined;
+        const date = (ts as unknown as { toDate?: () => Date })?.toDate?.();
+        const stamp = date
+          ? date.toLocaleString("en-US", {
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "";
+        const edited = data.edited ? " (edited)" : "";
+        return `[${stamp}] ${who}: ${data.text ?? ""}${edited}`;
+      });
+      const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `chat-export-${new Date().toISOString().slice(0, 10)}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   // Two-step confirm (click once to arm, click again to actually clear)
   // instead of a browser confirm() dialog, so it fits the rest of the UI.
   async function handleClearChat() {
@@ -428,6 +474,22 @@ export function WatchChat({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {whoAmI === "a" && connected && (
+            <button
+              onClick={handleExportChat}
+              disabled={exporting}
+              title="Export full chat history to a text file"
+              className={cn(
+                "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors disabled:cursor-wait disabled:opacity-60",
+                overlay
+                  ? "border-white/20 text-white/70 hover:border-white/40 hover:text-white"
+                  : "border-line text-mist hover:border-thread/40 hover:text-thread dark:border-line-dark"
+              )}
+            >
+              <Download className="h-3 w-3" />
+              {exporting ? "Exporting…" : "Export"}
+            </button>
+          )}
           <button
             onClick={handleClearChat}
             disabled={allMessages.length === 0}
