@@ -20,6 +20,8 @@ import {
   Captions,
   Sun,
   Moon,
+  Settings2,
+  CalendarClock,
 } from "lucide-react";
 import {
   doc,
@@ -37,6 +39,7 @@ import { usePresenceHeartbeat } from "@/lib/presence";
 import { withBasePath } from "@/lib/base-path";
 import { SnowyEasterEgg } from "@/components/ui/snowy-easter-egg";
 import { WatchSchedule } from "@/components/ui/watch-schedule";
+import { ClassSchedules } from "@/components/ui/class-schedule";
 import { CollapsibleCard } from "@/components/ui/collapsible-card";
 import Image from "next/image";
 
@@ -235,6 +238,12 @@ export function WatchRoom() {
   // carousel below - "" means "not chosen yet", resolved to the first
   // available group once the playlist/sections are known.
   const [activeGroupId, setActiveGroupId] = useState<string>("");
+  // Which sub-panel is showing inside the combined "manage" card below -
+  // film / sections / bulk-add used to be three separate cards; folded
+  // into tabs of one so the person actually using them (Misha) gets more
+  // room, and the person who doesn't touch them (Nicol) doesn't see the
+  // card at all.
+  const [manageTab, setManageTab] = useState<"film" | "sections" | "bulk">("film");
   const [whoAmI, setWhoAmI] = useState<"a" | "b" | null>(null);
   // Reported up by WatchChat itself from the messages it already has
   // loaded - no separate Firestore listener needed just for this badge.
@@ -767,12 +776,23 @@ export function WatchRoom() {
 
       {whoAmI && (
         <div className="space-y-8">
+          <CollapsibleCard icon={<CalendarClock className="h-3.5 w-3.5" />} title="Our schedules" defaultOpen>
+            <ClassSchedules
+              people={[
+                { name: nameA, timezone: people[0]?.timezone, entries: people[0]?.classSchedule ?? [], accent: "#D85A30" },
+                { name: nameB, timezone: people[1]?.timezone, entries: people[1]?.classSchedule ?? [], accent: "#3B82C4" },
+              ]}
+            />
+          </CollapsibleCard>
+
           <WatchSchedule
             whoAmI={whoAmI}
             nameA={nameA}
             nameB={nameB}
             timezoneA={people[0]?.timezone}
             timezoneB={people[1]?.timezone}
+            classScheduleA={people[0]?.classSchedule}
+            classScheduleB={people[1]?.classSchedule}
           />
 
           <div className="flex items-center gap-2.5 text-sm text-mist">
@@ -794,128 +814,175 @@ export function WatchRoom() {
             {connected ? `Watching with ${whoAmI === "a" ? nameB : nameA}` : `You're ${myName}`}
           </div>
 
-          {/* set / change film */}
-          <CollapsibleCard
-            icon={<Film className="h-3.5 w-3.5" />}
-            title={room.videoUrl ? "Change the film" : "Pick a film"}
-            subtitle={room.title || undefined}
-            defaultOpen={!room.videoUrl}
-          >
-            <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-              <div className="relative">
-                <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-mist" />
-                <input
-                  value={linkInput}
-                  onChange={(e) => setLinkInput(e.target.value)}
-                  placeholder="R2 public video URL (or object key)"
-                  className="w-full rounded-full border border-line bg-transparent py-2 pl-9 pr-4 text-sm outline-none transition-colors focus:border-thread dark:border-line-dark"
-                />
-              </div>
-              <input
-                value={titleInput}
-                onChange={(e) => setTitleInput(e.target.value)}
-                placeholder="Title (optional)"
-                className="w-full rounded-full border border-line bg-transparent px-4 py-2 text-sm outline-none transition-colors focus:border-thread dark:border-line-dark"
-              />
-              <button
-                onClick={handleSetFilm}
-                disabled={!linkInput.trim()}
-                className="rounded-full bg-thread px-5 py-2 text-sm text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-              >
-                Set
-              </button>
-            </div>
-            <div className="relative mt-3">
-              <Captions className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-mist" />
-              <input
-                value={subtitleInput}
-                onChange={(e) => setSubtitleInput(e.target.value)}
-                placeholder="Subtitles (optional) - .vtt URL or R2 object key"
-                className="w-full rounded-full border border-line bg-transparent py-2 pl-9 pr-4 text-sm outline-none transition-colors focus:border-thread dark:border-line-dark"
-              />
-            </div>
-            {linkError && <p className="mt-3 text-xs text-red-500">{linkError}</p>}
-          </CollapsibleCard>
-
-          {/* sections - group the playlist instead of one long mixed list */}
-          <CollapsibleCard
-            icon={<FolderPlus className="h-3.5 w-3.5" />}
-            title="Sections"
-            subtitle={room.sections.length ? `${room.sections.length} section(s)` : undefined}
-          >
-            <div className="flex flex-wrap items-center gap-3">
-              <input
-                value={sectionTitleInput}
-                onChange={(e) => setSectionTitleInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addSection()}
-                placeholder="e.g. Season 1, Movies..."
-                className="min-w-[12rem] flex-1 rounded-full border border-line bg-transparent px-4 py-2 text-sm outline-none transition-colors focus:border-thread dark:border-line-dark"
-              />
-              <button
-                onClick={addSection}
-                disabled={!sectionTitleInput.trim()}
-                className="rounded-full bg-thread px-5 py-2 text-sm text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-              >
-                Add section
-              </button>
-            </div>
-            {room.sections.length > 0 && (
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <span className="text-xs text-mist">Adding new episodes to:</span>
-                <select
-                  value={targetSectionId}
-                  onChange={(e) => setTargetSectionId(e.target.value)}
-                  className="rounded-full border border-line bg-transparent px-3 py-1.5 text-xs outline-none transition-colors focus:border-thread dark:border-line-dark"
-                >
-                  <option value="">No section</option>
-                  {room.sections.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </CollapsibleCard>
-
-          {/* bulk-add many episodes at once */}
-          <CollapsibleCard icon={<ListPlus className="h-3.5 w-3.5" />} title="Add a whole season at once">
-            <textarea
-              value={bulkInput}
-              onChange={(e) => setBulkInput(e.target.value)}
-              placeholder={
-                "Episode 1 | https://pub-xxxx.r2.dev/episode-01.mp4\n" +
-                "Episode 2 | https://pub-xxxx.r2.dev/episode-02.mp4 | https://pub-xxxx.r2.dev/episode-02.vtt\n..."
-              }
-              rows={5}
-              className="w-full rounded-[var(--season-radius-sm)] border border-line bg-transparent p-3 font-mono text-xs outline-none transition-colors focus:border-thread dark:border-line-dark"
-            />
-            <p className="mt-2 text-xs text-mist">
-              One per line: <code className="font-mono">title | video</code> or{" "}
-              <code className="font-mono">title | video | subtitles.vtt</code> (subtitles optional).
-            </p>
-            <div className="mt-3 flex items-center gap-3">
-              <button
-                onClick={handleBulkAdd}
-                disabled={!bulkInput.trim()}
-                className="rounded-full bg-thread px-5 py-2 text-sm text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-              >
-                Add all
-              </button>
-              {bulkAddedCount !== null && (
-                <span className="text-xs text-thread">Added {bulkAddedCount} episode(s) ✓</span>
-              )}
-            </div>
-            {bulkErrors.length > 0 && (
-              <div className="mt-3 space-y-1">
-                {bulkErrors.map((err, i) => (
-                  <p key={i} className="text-xs text-red-500">
-                    {err}
-                  </p>
+          {/* film / sections / bulk-add - one card, one owner. Nicol never
+              touches these, so they're Misha-only; folding three cards
+              into tabs of one also means whichever isn't in focus stops
+              eating vertical space instead of stacking underneath. */}
+          {whoAmI === "a" && (
+            <CollapsibleCard
+              icon={<Settings2 className="h-3.5 w-3.5" />}
+              title="Manage"
+              subtitle={room.title || undefined}
+              defaultOpen={!room.videoUrl}
+            >
+              <div className="mb-4 flex items-center gap-2 overflow-x-auto pb-1">
+                {(
+                  [
+                    { id: "film" as const, label: room.videoUrl ? "Change the film" : "Pick a film", icon: Film },
+                    {
+                      id: "sections" as const,
+                      label: "Sections",
+                      icon: FolderPlus,
+                      count: room.sections.length || undefined,
+                    },
+                    { id: "bulk" as const, label: "Add a whole season", icon: ListPlus },
+                  ] satisfies { id: "film" | "sections" | "bulk"; label: string; icon: typeof Film; count?: number }[]
+                ).map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setManageTab(tab.id)}
+                    className={cn(
+                      "flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm transition-colors",
+                      manageTab === tab.id
+                        ? "border-thread bg-thread/[0.08] text-thread"
+                        : "border-line text-mist hover:border-thread hover:text-thread dark:border-line-dark"
+                    )}
+                  >
+                    <tab.icon className="h-3.5 w-3.5" />
+                    {tab.label}
+                    {tab.count !== undefined && <span className="text-xs opacity-70">({tab.count})</span>}
+                  </button>
                 ))}
               </div>
-            )}
-          </CollapsibleCard>
+
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={manageTab}
+                  initial={{ opacity: 0, x: 12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -12 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  {manageTab === "film" && (
+                    <div>
+                      <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                        <div className="relative">
+                          <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-mist" />
+                          <input
+                            value={linkInput}
+                            onChange={(e) => setLinkInput(e.target.value)}
+                            placeholder="R2 public video URL (or object key)"
+                            className="w-full rounded-full border border-line bg-transparent py-2 pl-9 pr-4 text-sm outline-none transition-colors focus:border-thread dark:border-line-dark"
+                          />
+                        </div>
+                        <input
+                          value={titleInput}
+                          onChange={(e) => setTitleInput(e.target.value)}
+                          placeholder="Title (optional)"
+                          className="w-full rounded-full border border-line bg-transparent px-4 py-2 text-sm outline-none transition-colors focus:border-thread dark:border-line-dark"
+                        />
+                        <button
+                          onClick={handleSetFilm}
+                          disabled={!linkInput.trim()}
+                          className="rounded-full bg-thread px-5 py-2 text-sm text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                        >
+                          Set
+                        </button>
+                      </div>
+                      <div className="relative mt-3">
+                        <Captions className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-mist" />
+                        <input
+                          value={subtitleInput}
+                          onChange={(e) => setSubtitleInput(e.target.value)}
+                          placeholder="Subtitles (optional) - .vtt URL or R2 object key"
+                          className="w-full rounded-full border border-line bg-transparent py-2 pl-9 pr-4 text-sm outline-none transition-colors focus:border-thread dark:border-line-dark"
+                        />
+                      </div>
+                      {linkError && <p className="mt-3 text-xs text-red-500">{linkError}</p>}
+                    </div>
+                  )}
+
+                  {manageTab === "sections" && (
+                    <div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <input
+                          value={sectionTitleInput}
+                          onChange={(e) => setSectionTitleInput(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && addSection()}
+                          placeholder="e.g. Season 1, Movies..."
+                          className="min-w-[12rem] flex-1 rounded-full border border-line bg-transparent px-4 py-2 text-sm outline-none transition-colors focus:border-thread dark:border-line-dark"
+                        />
+                        <button
+                          onClick={addSection}
+                          disabled={!sectionTitleInput.trim()}
+                          className="rounded-full bg-thread px-5 py-2 text-sm text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                        >
+                          Add section
+                        </button>
+                      </div>
+                      {room.sections.length > 0 && (
+                        <div className="mt-4 flex flex-wrap items-center gap-2">
+                          <span className="text-xs text-mist">Adding new episodes to:</span>
+                          <select
+                            value={targetSectionId}
+                            onChange={(e) => setTargetSectionId(e.target.value)}
+                            className="rounded-full border border-line bg-transparent px-3 py-1.5 text-xs outline-none transition-colors focus:border-thread dark:border-line-dark"
+                          >
+                            <option value="">No section</option>
+                            {room.sections.map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.title}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {manageTab === "bulk" && (
+                    <div>
+                      <textarea
+                        value={bulkInput}
+                        onChange={(e) => setBulkInput(e.target.value)}
+                        placeholder={
+                          "Episode 1 | https://pub-xxxx.r2.dev/episode-01.mp4\n" +
+                          "Episode 2 | https://pub-xxxx.r2.dev/episode-02.mp4 | https://pub-xxxx.r2.dev/episode-02.vtt\n..."
+                        }
+                        rows={5}
+                        className="w-full rounded-[var(--season-radius-sm)] border border-line bg-transparent p-3 font-mono text-xs outline-none transition-colors focus:border-thread dark:border-line-dark"
+                      />
+                      <p className="mt-2 text-xs text-mist">
+                        One per line: <code className="font-mono">title | video</code> or{" "}
+                        <code className="font-mono">title | video | subtitles.vtt</code> (subtitles optional).
+                      </p>
+                      <div className="mt-3 flex items-center gap-3">
+                        <button
+                          onClick={handleBulkAdd}
+                          disabled={!bulkInput.trim()}
+                          className="rounded-full bg-thread px-5 py-2 text-sm text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                        >
+                          Add all
+                        </button>
+                        {bulkAddedCount !== null && (
+                          <span className="text-xs text-thread">Added {bulkAddedCount} episode(s) ✓</span>
+                        )}
+                      </div>
+                      {bulkErrors.length > 0 && (
+                        <div className="mt-3 space-y-1">
+                          {bulkErrors.map((err, i) => (
+                            <p key={i} className="text-xs text-red-500">
+                              {err}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            </CollapsibleCard>
+          )}
 
           {/* the playlist itself, grouped into sections - one section
               shown at a time behind a tab strip, instead of every group

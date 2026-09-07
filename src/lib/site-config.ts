@@ -56,6 +56,17 @@ export const site = {
       bio: "From Russia, currently studying Software Engineering at Sungkyunkwan University in Suwon, South Korea. Outside of coursework he cooks, writes, codes, and photographs the places and scenes he passes through - he used to play piano, too. He's currently building a personal project, a Dialogue Localisation Tool, and collects books: Russian titles he brought with him to Korea, plus Japanese books translated into Korean. This year he was selected as an advisor for incoming first-year students at his university. Next, he's aiming for a Master's degree somewhere in the EU, alongside an international internship.",
       photo: "/images/profile-a.jpg",
       coords: { lat: 37.2636, lng: 127.0286 },
+      // Weekly recurring class schedule, in his own local time (Asia/Seoul).
+      // day: 3-letter English weekday matching Intl's {weekday:"short"}
+      // output ("Mon".."Sun"), start/end: 24h "HH:MM".
+      classSchedule: [
+        { day: "Mon", start: "12:00", end: "14:45", title: "Advanced Topics in Generative AI" },
+        { day: "Mon", start: "18:00", end: "19:50", title: "CSE Exploration Seminar" },
+        { day: "Tue", start: "10:30", end: "11:45", title: "Programming Languages" },
+        { day: "Tue", start: "18:00", end: "20:45", title: "Technical Writing & Presentation for SW Developers" },
+        { day: "Wed", start: "12:00", end: "13:15", title: "Multimedia Engineering" },
+        { day: "Wed", start: "13:30", end: "14:45", title: "Introduction to Artificial Intelligence" },
+      ],
     },
     {
       name: "Nicol",
@@ -74,6 +85,18 @@ export const site = {
       bio: "From Slovakia, currently studying law and completing a supervised internship in the Czech Republic - mandatory for her degree, and she's been clear she wants to stay in law rather than switch fields. She has a cat waiting for her back home in Slovakia, cooks only the bare minimum, and works through a couple of ongoing translated web-novel series between everything else. When she plays, it's solo - Genshin Impact, Honkai: Star Rail, Hades - multiplayer isn't really her thing. Careful with new people, protective of her independence, and always says what she means.",
       photo: "/images/profile-b.jpg",
       coords: { lat: 49.1951, lng: 16.6068 },
+      // Same shape as Misha's - her own local time (Europe/Prague).
+      classSchedule: [
+        { day: "Mon", start: "12:00", end: "13:30", title: "Law of Securities" },
+        { day: "Tue", start: "08:00", end: "09:30", title: "Privacy and Personal Data..." },
+        { day: "Tue", start: "12:00", end: "13:30", title: "Administrative Law II" },
+        { day: "Tue", start: "16:00", end: "17:30", title: "EU Law II" },
+        { day: "Wed", start: "10:00", end: "11:30", title: "Legal Ethics" },
+        { day: "Wed", start: "12:00", end: "13:30", title: "Introduction to IT Law" },
+        { day: "Wed", start: "14:00", end: "15:30", title: "Administrative Law / Financial Law I" },
+        { day: "Wed", start: "18:00", end: "19:30", title: "MPO" },
+        { day: "Thu", start: "14:00", end: "15:30", title: "Criminal Law II" },
+      ],
     },
   ],
 

@@ -131,7 +131,7 @@ function fmtTime(d: Date, timezone?: string) {
   return new Intl.DateTimeFormat("en-US", {
     hour: "2-digit",
     minute: "2-digit",
-    hour12: false,
+    hourCycle: "h23",
     timeZone: timezone,
   }).format(d);
 }
@@ -140,54 +140,135 @@ function fmtDay(d: Date, timezone?: string) {
   return new Intl.DateTimeFormat("en-US", { weekday: "short", day: "numeric", timeZone: timezone }).format(d);
 }
 
+type ClassEntry = { day: string; start: string; end: string; title: string };
+type BusyFlags = { mine: boolean; theirs: boolean };
+
+function classAt(day: string, minutes: number, schedule: ClassEntry[] | undefined): ClassEntry | null {
+  if (!schedule) return null;
+  return (
+    schedule.find((e) => {
+      if (e.day !== day) return false;
+      const [sh, sm] = e.start.split(":").map(Number);
+      const [eh, em] = e.end.split(":").map(Number);
+      const start = sh * 60 + sm;
+      const end = eh * 60 + em;
+      return minutes >= start && minutes < end;
+    }) ?? null
+  );
+}
+
+// Weekday + minutes-since-midnight of `date`, as read in `timezone` -
+// used to check each side's class schedule (which is recorded in each
+// person's own local time) against a candidate proposal instant.
+function localWeekdayAndMinutes(date: Date, timezone: string) {
+  const weekday = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: timezone }).format(date);
+  const timeStr = new Intl.DateTimeFormat("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone: timezone,
+  }).format(date);
+  const [hh, mm] = timeStr.split(":").map(Number);
+  return { weekday, minutes: hh * 60 + mm };
+}
+
 // A small pill-based time picker: one scrollable row of hours, one
 // scrollable row of 5-minute steps. Keeps the same rounded/thread visual
 // language as the rest of the card instead of a bare native time input.
+// `busy` marks, per "HH:MM" key (in *my* local time), whether picking
+// that slot would land on a class - for me, or for my partner once their
+// timezone offset is applied.
 function TimePicker({
   hour,
   minute,
   onChange,
+  busy,
 }: {
   hour: number;
   minute: number;
   onChange: (hour: number, minute: number) => void;
+  busy: Record<string, BusyFlags>;
 }) {
+  function flagsFor(h: number, m: number): BusyFlags {
+    return busy[`${pad(h)}:${pad(m)}`] ?? { mine: false, theirs: false };
+  }
+  function hourFlags(h: number): BusyFlags {
+    let mine = false;
+    let theirs = false;
+    for (const m of MINUTES) {
+      const f = flagsFor(h, m);
+      if (f.mine) mine = true;
+      if (f.theirs) theirs = true;
+    }
+    return { mine, theirs };
+  }
+
+  const anyBusy = HOURS.some((h) => hourFlags(h).mine || hourFlags(h).theirs);
+
   return (
     <div className="space-y-2">
       <div className="flex max-w-full gap-1.5 overflow-x-auto pb-1">
-        {HOURS.map((h) => (
-          <button
-            key={h}
-            type="button"
-            onClick={() => onChange(h, minute)}
-            className={cn(
-              "grid h-8 w-8 shrink-0 place-items-center rounded-full border text-xs transition-colors",
-              h === hour
-                ? "border-thread bg-thread text-white dark:text-black"
-                : "border-line text-mist hover:border-thread hover:text-thread dark:border-line-dark"
-            )}
-          >
-            {pad(h)}
-          </button>
-        ))}
+        {HOURS.map((h) => {
+          const f = hourFlags(h);
+          return (
+            <button
+              key={h}
+              type="button"
+              onClick={() => onChange(h, minute)}
+              className={cn(
+                "relative grid h-8 w-8 shrink-0 place-items-center rounded-full border text-xs transition-colors",
+                h === hour
+                  ? "border-thread bg-thread text-white dark:text-black"
+                  : "border-line text-mist hover:border-thread hover:text-thread dark:border-line-dark"
+              )}
+            >
+              {pad(h)}
+              {(f.mine || f.theirs) && (
+                <span className="absolute -top-0.5 right-0 flex gap-[1px]">
+                  {f.mine && <span className="h-1.5 w-1.5 rounded-full bg-thread ring-1 ring-white dark:ring-black" />}
+                  {f.theirs && <span className="h-1.5 w-1.5 rounded-full bg-sky-500 ring-1 ring-white dark:ring-black" />}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
       <div className="flex max-w-full gap-1.5 overflow-x-auto pb-1">
-        {MINUTES.map((m) => (
-          <button
-            key={m}
-            type="button"
-            onClick={() => onChange(hour, m)}
-            className={cn(
-              "grid h-8 w-8 shrink-0 place-items-center rounded-full border text-xs transition-colors",
-              m === minute
-                ? "border-thread bg-thread text-white dark:text-black"
-                : "border-line text-mist hover:border-thread hover:text-thread dark:border-line-dark"
-            )}
-          >
-            {pad(m)}
-          </button>
-        ))}
+        {MINUTES.map((m) => {
+          const f = flagsFor(hour, m);
+          return (
+            <button
+              key={m}
+              type="button"
+              onClick={() => onChange(hour, m)}
+              className={cn(
+                "relative grid h-8 w-8 shrink-0 place-items-center rounded-full border text-xs transition-colors",
+                m === minute
+                  ? "border-thread bg-thread text-white dark:text-black"
+                  : "border-line text-mist hover:border-thread hover:text-thread dark:border-line-dark"
+              )}
+            >
+              {pad(m)}
+              {(f.mine || f.theirs) && (
+                <span className="absolute -top-0.5 right-0 flex gap-[1px]">
+                  {f.mine && <span className="h-1.5 w-1.5 rounded-full bg-thread ring-1 ring-white dark:ring-black" />}
+                  {f.theirs && <span className="h-1.5 w-1.5 rounded-full bg-sky-500 ring-1 ring-white dark:ring-black" />}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
+      {anyBusy && (
+        <p className="flex items-center gap-3 text-[11px] text-mist">
+          <span className="flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-thread" /> you have class
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-sky-500" /> they have class
+          </span>
+        </p>
+      )}
     </div>
   );
 }
@@ -198,12 +279,16 @@ export function WatchSchedule({
   nameB,
   timezoneA,
   timezoneB,
+  classScheduleA,
+  classScheduleB,
 }: {
   whoAmI: "a" | "b";
   nameA: string;
   nameB: string;
   timezoneA?: string;
   timezoneB?: string;
+  classScheduleA?: ClassEntry[];
+  classScheduleB?: ClassEntry[];
 }) {
   const connected = isFirebaseConfigured;
   const otherName = whoAmI === "a" ? nameB : nameA;
@@ -215,6 +300,8 @@ export function WatchSchedule({
   // to. `theirTimezone` is the fixed zone of whoever I'm not.
   const myTimezone = (whoAmI === "a" ? timezoneA : timezoneB) || Intl.DateTimeFormat().resolvedOptions().timeZone;
   const theirTimezone = whoAmI === "a" ? timezoneB : timezoneA;
+  const mySchedule = whoAmI === "a" ? classScheduleA : classScheduleB;
+  const theirSchedule = whoAmI === "a" ? classScheduleB : classScheduleA;
 
   const [expanded, setExpanded] = useState(false);
   const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -320,6 +407,33 @@ export function WatchSchedule({
   function proposalForDay(dateKey: string): Proposal | null {
     return proposals.find((p) => dateKeyInZone(p.at.toDate(), myTimezone) === dateKey) ?? null;
   }
+
+  // For the day currently open in the picker, work out - for every
+  // 5-minute slot in *my* local time - whether that instant lands on one
+  // of my classes, or (after converting to their timezone) one of
+  // theirs. This is the piece that actually has to know the time
+  // difference: a slot that's free for me at 19:00 my time might land
+  // squarely in one of their lectures once shifted to their own zone.
+  const busyMap = useMemo(() => {
+    const map: Record<string, BusyFlags> = {};
+    if (openIdx === null) return map;
+    const dateKey = days[openIdx];
+    for (const h of HOURS) {
+      for (const m of MINUTES) {
+        const utcMillis = zonedTimeToUtcMillis(dateKey, `${pad(h)}:${pad(m)}`, myTimezone);
+        const instant = new Date(utcMillis);
+        const mine = localWeekdayAndMinutes(instant, myTimezone);
+        const mineBusy = Boolean(classAt(mine.weekday, mine.minutes, mySchedule));
+        let theirsBusy = false;
+        if (theirTimezone) {
+          const theirs = localWeekdayAndMinutes(instant, theirTimezone);
+          theirsBusy = Boolean(classAt(theirs.weekday, theirs.minutes, theirSchedule));
+        }
+        map[`${pad(h)}:${pad(m)}`] = { mine: mineBusy, theirs: theirsBusy };
+      }
+    }
+    return map;
+  }, [openIdx, days, myTimezone, theirTimezone, mySchedule, theirSchedule]);
 
   const pendingFromPartner = proposals.find((p) => p.proposedBy !== whoAmI && p.status === "pending");
 
@@ -498,6 +612,7 @@ export function WatchSchedule({
                           <TimePicker
                             hour={draftHour}
                             minute={draftMinute}
+                            busy={busyMap}
                             onChange={(h, m) => {
                               setDraftHour(h);
                               setDraftMinute(m);
