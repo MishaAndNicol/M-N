@@ -56,7 +56,7 @@ export function Hero() {
           className="mt-10"
         >
           <Link
-            href="/about"
+            href="/memories"
             className="group inline-flex items-center gap-3 rounded-full bg-ink px-6 py-3 text-sm text-paper transition-transform hover:scale-[1.03] dark:bg-white dark:text-black"
           >
             Begin the story

@@ -9,7 +9,6 @@ import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
-  { href: "/about", label: "About" },
   { href: "/memories", label: "Memories" },
   { href: "/music", label: "Music" },
   { href: "/watch", label: "Watch" },

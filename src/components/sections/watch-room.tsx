@@ -243,7 +243,7 @@ export function WatchRoom() {
   // into tabs of one so the person actually using them (Misha) gets more
   // room, and the person who doesn't touch them (Nicol) doesn't see the
   // card at all.
-  const [manageTab, setManageTab] = useState<"film" | "sections" | "bulk">("film");
+  const [manageTab, setManageTab] = useState<"film" | "sections" | "bulk" | "playlist">("film");
   const [whoAmI, setWhoAmI] = useState<"a" | "b" | null>(null);
   // Reported up by WatchChat itself from the messages it already has
   // loaded - no separate Firestore listener needed just for this badge.
@@ -514,6 +514,112 @@ export function WatchRoom() {
 
   function removeEpisode(id: string) {
     writeRoom({ playlist: room.playlist.filter((ep) => ep.id !== id) });
+  }
+
+  // The playlist itself, grouped into sections - one section shown at a
+  // time behind a tab strip, instead of every group stacking up and
+  // pushing the page (and the player) further down as more seasons get
+  // added. Shared between "Manage -> Playlist" (Misha, folded into a
+  // tab) and Nicol's own standalone card, so the two never drift apart.
+  function renderPlaylistBrowser() {
+    const noSectionId = "__none__";
+    const groups = new Map<string, Episode[]>();
+    room.playlist.forEach((ep) => {
+      const key = ep.sectionId ?? noSectionId;
+      const arr = groups.get(key) ?? [];
+      arr.push(ep);
+      groups.set(key, arr);
+    });
+    const groupList: { id: string; title: string; episodes: Episode[] }[] = [
+      ...room.sections.filter((s) => groups.has(s.id)).map((s) => ({ id: s.id, title: s.title, episodes: groups.get(s.id)! })),
+      ...(groups.has(noSectionId) ? [{ id: noSectionId, title: "No section", episodes: groups.get(noSectionId)! }] : []),
+    ];
+    const active = groupList.find((g) => g.id === activeGroupId) ?? groupList[0];
+    if (!active) return null;
+
+    return (
+      <div>
+        {/* tab strip - scrolls horizontally instead of wrapping, so it
+            stays one compact row no matter how many seasons/sections
+            exist */}
+        <div className="mb-4 flex items-center gap-2 overflow-x-auto pb-1">
+          {groupList.map((group) => (
+            <button
+              key={group.id}
+              onClick={() => setActiveGroupId(group.id)}
+              className={cn(
+                "flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm transition-colors",
+                group.id === active.id
+                  ? "border-thread bg-thread/[0.08] text-thread"
+                  : "border-line text-mist hover:border-thread hover:text-thread dark:border-line-dark"
+              )}
+            >
+              <Folder className="h-3.5 w-3.5" />
+              {group.title}
+              <span className="text-xs opacity-70">({group.episodes.length})</span>
+            </button>
+          ))}
+        </div>
+
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={active.id}
+            initial={{ opacity: 0, x: 12 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -12 }}
+            transition={{ duration: 0.15 }}
+          >
+            {active.id !== noSectionId && (
+              <div className="mb-3 flex justify-end">
+                <button
+                  onClick={() => deleteSection(active.id)}
+                  title="Delete section (keeps its episodes, ungrouped)"
+                  className="flex items-center gap-1.5 rounded-full px-2 py-1 text-xs text-mist transition-colors hover:bg-red-500/10 hover:text-red-500"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Delete section
+                </button>
+              </div>
+            )}
+            <ul className="max-h-[22rem] space-y-2 overflow-y-auto pr-1">
+              {active.episodes.map((ep, i) => {
+                const isPlaying = ep.videoUrl === room.videoUrl;
+                return (
+                  <li
+                    key={ep.id}
+                    className={cn(
+                      "flex items-center justify-between gap-3 rounded-full border px-4 py-2 text-sm transition-colors",
+                      isPlaying ? "border-thread bg-thread/[0.06] text-thread" : "border-line dark:border-line-dark"
+                    )}
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="shrink-0 text-xs text-mist">{i + 1}.</span>
+                      <span className="truncate">{ep.title}</span>
+                      {ep.subtitleUrl && <Captions className="h-3.5 w-3.5 shrink-0 text-mist" aria-label="Has subtitles" />}
+                    </span>
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      <button
+                        onClick={() => playEpisode(ep, { autoplay: room.playing })}
+                        title="Play this episode"
+                        className="rounded-full p-1.5 transition-colors hover:bg-thread/10 hover:text-thread"
+                      >
+                        <Play className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => removeEpisode(ep.id)}
+                        title="Remove from playlist"
+                        className="rounded-full p-1.5 transition-colors hover:bg-red-500/10 hover:text-red-500"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    );
   }
 
   const mediaUrl = useMemo(() => (room.videoUrl ? room.videoUrl : null), [room.videoUrl]);
@@ -814,10 +920,12 @@ export function WatchRoom() {
             {connected ? `Watching with ${whoAmI === "a" ? nameB : nameA}` : `You're ${myName}`}
           </div>
 
-          {/* film / sections / bulk-add - one card, one owner. Nicol never
-              touches these, so they're Misha-only; folding three cards
-              into tabs of one also means whichever isn't in focus stops
-              eating vertical space instead of stacking underneath. */}
+          {/* film / sections / bulk-add / playlist - one card, one owner.
+              Nicol never touches the management controls, so those stay
+              Misha-only; folding everything (including the playlist
+              browser) into tabs of one card means only one panel is ever
+              visible at once, instead of two full cards stacking on top
+              of each other and eating vertical space on the monitor. */}
           {whoAmI === "a" && (
             <CollapsibleCard
               icon={<Settings2 className="h-3.5 w-3.5" />}
@@ -836,7 +944,18 @@ export function WatchRoom() {
                       count: room.sections.length || undefined,
                     },
                     { id: "bulk" as const, label: "Add a whole season", icon: ListPlus },
-                  ] satisfies { id: "film" | "sections" | "bulk"; label: string; icon: typeof Film; count?: number }[]
+                    {
+                      id: "playlist" as const,
+                      label: "Playlist",
+                      icon: Folder,
+                      count: room.playlist.length || undefined,
+                    },
+                  ] satisfies {
+                    id: "film" | "sections" | "bulk" | "playlist";
+                    label: string;
+                    icon: typeof Film;
+                    count?: number;
+                  }[]
                 ).map((tab) => (
                   <button
                     key={tab.id}
@@ -979,124 +1098,21 @@ export function WatchRoom() {
                       )}
                     </div>
                   )}
+
+                  {manageTab === "playlist" &&
+                    (room.playlist.length > 0 ? renderPlaylistBrowser() : (
+                      <p className="text-xs text-mist">Nothing in the playlist yet - add a film above.</p>
+                    ))}
                 </motion.div>
               </AnimatePresence>
             </CollapsibleCard>
           )}
 
-          {/* the playlist itself, grouped into sections - one section
-              shown at a time behind a tab strip, instead of every group
-              stacking up and pushing the page (and the player) further
-              down as more seasons get added. */}
-          {room.playlist.length > 0 &&
-            (() => {
-              const noSectionId = "__none__";
-              const groups = new Map<string, Episode[]>();
-              room.playlist.forEach((ep) => {
-                const key = ep.sectionId ?? noSectionId;
-                const arr = groups.get(key) ?? [];
-                arr.push(ep);
-                groups.set(key, arr);
-              });
-              const groupList: { id: string; title: string; episodes: Episode[] }[] = [
-                ...room.sections
-                  .filter((s) => groups.has(s.id))
-                  .map((s) => ({ id: s.id, title: s.title, episodes: groups.get(s.id)! })),
-                ...(groups.has(noSectionId)
-                  ? [{ id: noSectionId, title: "No section", episodes: groups.get(noSectionId)! }]
-                  : []),
-              ];
-
-              const active = groupList.find((g) => g.id === activeGroupId) ?? groupList[0];
-
-              return (
-                <div className="card-surface p-6">
-                  {/* tab strip - scrolls horizontally instead of wrapping,
-                      so it stays one compact row no matter how many
-                      seasons/sections exist */}
-                  <div className="mb-4 flex items-center gap-2 overflow-x-auto pb-1">
-                    {groupList.map((group) => (
-                      <button
-                        key={group.id}
-                        onClick={() => setActiveGroupId(group.id)}
-                        className={cn(
-                          "flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm transition-colors",
-                          group.id === active.id
-                            ? "border-thread bg-thread/[0.08] text-thread"
-                            : "border-line text-mist hover:border-thread hover:text-thread dark:border-line-dark"
-                        )}
-                      >
-                        <Folder className="h-3.5 w-3.5" />
-                        {group.title}
-                        <span className="text-xs opacity-70">({group.episodes.length})</span>
-                      </button>
-                    ))}
-                  </div>
-
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={active.id}
-                      initial={{ opacity: 0, x: 12 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -12 }}
-                      transition={{ duration: 0.15 }}
-                    >
-                      {active.id !== noSectionId && (
-                        <div className="mb-3 flex justify-end">
-                          <button
-                            onClick={() => deleteSection(active.id)}
-                            title="Delete section (keeps its episodes, ungrouped)"
-                            className="flex items-center gap-1.5 rounded-full px-2 py-1 text-xs text-mist transition-colors hover:bg-red-500/10 hover:text-red-500"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" /> Delete section
-                          </button>
-                        </div>
-                      )}
-                      <ul className="max-h-[22rem] space-y-2 overflow-y-auto pr-1">
-                        {active.episodes.map((ep, i) => {
-                          const isPlaying = ep.videoUrl === room.videoUrl;
-                          return (
-                            <li
-                              key={ep.id}
-                              className={cn(
-                                "flex items-center justify-between gap-3 rounded-full border px-4 py-2 text-sm transition-colors",
-                                isPlaying
-                                  ? "border-thread bg-thread/[0.06] text-thread"
-                                  : "border-line dark:border-line-dark"
-                              )}
-                            >
-                              <span className="flex min-w-0 items-center gap-2">
-                                <span className="shrink-0 text-xs text-mist">{i + 1}.</span>
-                                <span className="truncate">{ep.title}</span>
-                                {ep.subtitleUrl && (
-                                  <Captions className="h-3.5 w-3.5 shrink-0 text-mist" aria-label="Has subtitles" />
-                                )}
-                              </span>
-                              <span className="flex shrink-0 items-center gap-1.5">
-                                <button
-                                  onClick={() => playEpisode(ep, { autoplay: room.playing })}
-                                  title="Play this episode"
-                                  className="rounded-full p-1.5 transition-colors hover:bg-thread/10 hover:text-thread"
-                                >
-                                  <Play className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => removeEpisode(ep.id)}
-                                  title="Remove from playlist"
-                                  className="rounded-full p-1.5 transition-colors hover:bg-red-500/10 hover:text-red-500"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              </span>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </motion.div>
-                  </AnimatePresence>
-                </div>
-              );
-            })()}
+          {/* Nicol has no management controls to fold this into, so she
+              keeps the playlist browser as its own plain card. */}
+          {whoAmI !== "a" && room.playlist.length > 0 && (
+            <div className="card-surface p-6">{renderPlaylistBrowser()}</div>
+          )}
 
           {/* player. Full width now - the chat no longer sits in a
               permanent side column; it opens over the video via the

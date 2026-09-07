@@ -2,11 +2,10 @@ import Link from "next/link";
 import { Reveal } from "@/components/ui/reveal";
 
 const CHAPTERS = [
-  { n: "01", href: "/about", title: "About us", text: "Who we are, apart from each other." },
-  { n: "02", href: "/memories", title: "Memories", text: "Empty tiles, waiting for real ones." },
-  { n: "03", href: "/music", title: "Music", text: "Songs that already mean something." },
-  { n: "04", href: "/watch", title: "Watch together", text: "Same film, two screens." },
-  { n: "05", href: "/not-yet", title: "Not yet", text: "What hasn't happened. Not sad - just not yet." },
+  { n: "01", href: "/memories", title: "Memories", text: "Empty tiles, waiting for real ones." },
+  { n: "02", href: "/music", title: "Music", text: "Songs that already mean something." },
+  { n: "03", href: "/watch", title: "Watch together", text: "Same film, two screens." },
+  { n: "04", href: "/not-yet", title: "Not yet", text: "What hasn't happened. Not sad - just not yet." },
 ];
 
 export function Chapters() {
