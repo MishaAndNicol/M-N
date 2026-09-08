@@ -281,6 +281,8 @@ export function WatchSchedule({
   timezoneB,
   classScheduleA,
   classScheduleB,
+  ntfyTopicA,
+  ntfyTopicB,
 }: {
   whoAmI: "a" | "b";
   nameA: string;
@@ -289,8 +291,11 @@ export function WatchSchedule({
   timezoneB?: string;
   classScheduleA?: ClassEntry[];
   classScheduleB?: ClassEntry[];
+  ntfyTopicA?: string;
+  ntfyTopicB?: string;
 }) {
   const connected = isFirebaseConfigured;
+  const myName = whoAmI === "a" ? nameA : nameB;
   const otherName = whoAmI === "a" ? nameB : nameA;
   // Each person's proposal is always converted using *their own* fixed
   // timezone (Misha -> Asia/Seoul, Nicol -> Europe/Prague, as configured
@@ -302,6 +307,35 @@ export function WatchSchedule({
   const theirTimezone = whoAmI === "a" ? timezoneB : timezoneA;
   const mySchedule = whoAmI === "a" ? classScheduleA : classScheduleB;
   const theirSchedule = whoAmI === "a" ? classScheduleB : classScheduleA;
+  // The topic *they* are subscribed to on their phone - this side posts
+  // there to reach them. (Mirror of myTimezone/theirTimezone above.)
+  const theirNtfyTopic = whoAmI === "a" ? ntfyTopicB : ntfyTopicA;
+  // My own topic - the one I *listen* to, live, right from this page
+  // (see the SSE effect below), no separate app required.
+  const myNtfyTopic = whoAmI === "a" ? ntfyTopicA : ntfyTopicB;
+
+  // Real push, independent of whether either tab is open: a plain POST
+  // to ntfy.sh's public server, which fans it out to the ntfy app on
+  // whichever devices are subscribed to that topic. No account, no
+  // backend of our own, no service worker - the trade-off is that
+  // anyone who learns the topic string could also post to it, which is
+  // why it's a long random string rather than something guessable.
+  // Header values are ASCII/Latin1-only per the fetch spec - `title`
+  // must not contain emoji or other non-Latin1 characters, or the
+  // browser throws before the request is even sent. Emoji belong in the
+  // body instead, which has no such restriction.
+  function pushNtfy(topic: string | undefined, title: string, message: string) {
+    if (!topic) return;
+    fetch(`https://ntfy.sh/${encodeURIComponent(topic)}`, {
+      method: "POST",
+      headers: { Title: title, Tags: "paw_prints", Priority: "default" },
+      body: message,
+    }).catch(() => {
+      // Best-effort - a failed push shouldn't block the in-app flow, and
+      // the in-page banner still covers the case where both are on the
+      // page at the same time anyway.
+    });
+  }
 
   const [expanded, setExpanded] = useState(false);
   const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -310,6 +344,12 @@ export function WatchSchedule({
   const [draftMinute, setDraftMinute] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">("default");
+  // Live connection straight from the page via ntfy's SSE stream - no
+  // app, no install. Works as long as this tab is open somewhere
+  // (foreground or background); it does *not* survive the tab/browser
+  // being fully closed, which is what the native ntfy app (or its own
+  // web-push page) is still for.
+  const [liveStatus, setLiveStatus] = useState<"connecting" | "live" | "off">("off");
   const seenPendingIds = useRef<Set<string>>(new Set());
   const askedPermissionRef = useRef(false);
 
@@ -320,6 +360,38 @@ export function WatchSchedule({
     }
     setNotifPermission(Notification.permission);
   }, []);
+
+  // Subscribe live to *my own* ntfy topic right from this page. Whatever
+  // the partner posts (a new suggestion, an agreement) arrives here as a
+  // Server-Sent Event within a second or two, no polling, no separate
+  // app tab to keep open.
+  useEffect(() => {
+    if (!myNtfyTopic || typeof window === "undefined" || typeof EventSource === "undefined") {
+      setLiveStatus("off");
+      return;
+    }
+    setLiveStatus("connecting");
+    const es = new EventSource(`https://ntfy.sh/${encodeURIComponent(myNtfyTopic)}/sse`);
+    es.onopen = () => setLiveStatus("live");
+    es.onerror = () => {
+      // EventSource retries connections on its own per spec - just
+      // reflect that we're mid-reconnect while it does.
+      setLiveStatus("connecting");
+    };
+    es.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data) as { event?: string; title?: string; message?: string };
+        if (data.event !== "message" || !data.message) return; // skip "open"/keepalive frames
+        setNotice(data.message);
+        if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+          new Notification(data.title || "Watch time update", { body: data.message });
+        }
+      } catch {
+        // malformed frame - ignore rather than crash the stream handler
+      }
+    };
+    return () => es.close();
+  }, [myNtfyTopic]);
 
   // Rolling window: "today + next 6 days" in *my own* timezone, read
   // fresh on every mount - so each side always sees calendar days as
@@ -449,12 +521,30 @@ export function WatchSchedule({
       createdAt: serverTimestamp(),
     });
     setNotice(`You suggested ${fmtDayFromKey(dateKey)}, ${pad(hour)}:${pad(minute)} (your time)`);
+    pushNtfy(
+      theirNtfyTopic,
+      "New watch time suggested",
+      // Deliberately re-render this in *their* timezone, not mine - the
+      // whole point of ntfy is it reaches them off-device, so the time
+      // has to already be theirs to read at a glance.
+      theirTimezone
+        ? `🐾 ${myName} suggested ${fmtDay(new Date(utcMillis), theirTimezone)}, ${fmtTime(new Date(utcMillis), theirTimezone)} (your time)`
+        : `🐾 ${myName} suggested a new watch time.`
+    );
   }
 
   async function agree(p: Proposal) {
     const db = getDb();
     if (!db) return;
     await updateDoc(doc(db, SCHEDULE_COLLECTION, p.id), { status: "agreed" });
+    const at = p.at.toDate();
+    pushNtfy(
+      theirNtfyTopic,
+      "Watch time agreed",
+      theirTimezone
+        ? `🐾 ${myName} agreed to ${fmtDay(at, theirTimezone)}, ${fmtTime(at, theirTimezone)} (your time)`
+        : `🐾 ${myName} agreed to your suggested time.`
+    );
   }
 
   async function withdraw(p: Proposal) {
@@ -493,6 +583,26 @@ export function WatchSchedule({
           )}
         </button>
         <span className="flex shrink-0 items-center gap-1">
+          {myNtfyTopic && (
+            <span
+              title={
+                liveStatus === "live"
+                  ? "Listening live on this page - no app needed while it's open"
+                  : liveStatus === "connecting"
+                    ? "Reconnecting to live updates..."
+                    : "Live updates unavailable in this browser"
+              }
+              className="flex items-center gap-1 pr-1 text-[10px] text-mist"
+            >
+              <span
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full",
+                  liveStatus === "live" ? "bg-emerald-500" : liveStatus === "connecting" ? "bg-amber-400" : "bg-mist/40"
+                )}
+              />
+              live
+            </span>
+          )}
           {notifPermission !== "unsupported" && (
             <button
               onClick={(e) => {
