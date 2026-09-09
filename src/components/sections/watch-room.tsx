@@ -899,8 +899,6 @@ export function WatchRoom() {
             timezoneB={people[1]?.timezone}
             classScheduleA={people[0]?.classSchedule}
             classScheduleB={people[1]?.classSchedule}
-            ntfyTopicA={people[0]?.ntfyTopic}
-            ntfyTopicB={people[1]?.ntfyTopic}
           />
 
           <div className="flex items-center gap-2.5 text-sm text-mist">

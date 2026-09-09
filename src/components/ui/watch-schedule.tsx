@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, Bell, BellOff, BellRing } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import {
   addDoc,
   collection,
@@ -281,8 +281,6 @@ export function WatchSchedule({
   timezoneB,
   classScheduleA,
   classScheduleB,
-  ntfyTopicA,
-  ntfyTopicB,
 }: {
   whoAmI: "a" | "b";
   nameA: string;
@@ -291,11 +289,8 @@ export function WatchSchedule({
   timezoneB?: string;
   classScheduleA?: ClassEntry[];
   classScheduleB?: ClassEntry[];
-  ntfyTopicA?: string;
-  ntfyTopicB?: string;
 }) {
   const connected = isFirebaseConfigured;
-  const myName = whoAmI === "a" ? nameA : nameB;
   const otherName = whoAmI === "a" ? nameB : nameA;
   // Each person's proposal is always converted using *their own* fixed
   // timezone (Misha -> Asia/Seoul, Nicol -> Europe/Prague, as configured
@@ -307,91 +302,12 @@ export function WatchSchedule({
   const theirTimezone = whoAmI === "a" ? timezoneB : timezoneA;
   const mySchedule = whoAmI === "a" ? classScheduleA : classScheduleB;
   const theirSchedule = whoAmI === "a" ? classScheduleB : classScheduleA;
-  // The topic *they* are subscribed to on their phone - this side posts
-  // there to reach them. (Mirror of myTimezone/theirTimezone above.)
-  const theirNtfyTopic = whoAmI === "a" ? ntfyTopicB : ntfyTopicA;
-  // My own topic - the one I *listen* to, live, right from this page
-  // (see the SSE effect below), no separate app required.
-  const myNtfyTopic = whoAmI === "a" ? ntfyTopicA : ntfyTopicB;
-
-  // Real push, independent of whether either tab is open: a plain POST
-  // to ntfy.sh's public server, which fans it out to the ntfy app on
-  // whichever devices are subscribed to that topic. No account, no
-  // backend of our own, no service worker - the trade-off is that
-  // anyone who learns the topic string could also post to it, which is
-  // why it's a long random string rather than something guessable.
-  // Header values are ASCII/Latin1-only per the fetch spec - `title`
-  // must not contain emoji or other non-Latin1 characters, or the
-  // browser throws before the request is even sent. Emoji belong in the
-  // body instead, which has no such restriction.
-  function pushNtfy(topic: string | undefined, title: string, message: string) {
-    if (!topic) return;
-    fetch(`https://ntfy.sh/${encodeURIComponent(topic)}`, {
-      method: "POST",
-      headers: { Title: title, Tags: "paw_prints", Priority: "default" },
-      body: message,
-    }).catch(() => {
-      // Best-effort - a failed push shouldn't block the in-app flow, and
-      // the in-page banner still covers the case where both are on the
-      // page at the same time anyway.
-    });
-  }
 
   const [expanded, setExpanded] = useState(false);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [openIdx, setOpenIdx] = useState<number | null>(null);
   const [draftHour, setDraftHour] = useState(19);
   const [draftMinute, setDraftMinute] = useState(0);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">("default");
-  // Live connection straight from the page via ntfy's SSE stream - no
-  // app, no install. Works as long as this tab is open somewhere
-  // (foreground or background); it does *not* survive the tab/browser
-  // being fully closed, which is what the native ntfy app (or its own
-  // web-push page) is still for.
-  const [liveStatus, setLiveStatus] = useState<"connecting" | "live" | "off">("off");
-  const seenPendingIds = useRef<Set<string>>(new Set());
-  const askedPermissionRef = useRef(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !("Notification" in window)) {
-      setNotifPermission("unsupported");
-      return;
-    }
-    setNotifPermission(Notification.permission);
-  }, []);
-
-  // Subscribe live to *my own* ntfy topic right from this page. Whatever
-  // the partner posts (a new suggestion, an agreement) arrives here as a
-  // Server-Sent Event within a second or two, no polling, no separate
-  // app tab to keep open.
-  useEffect(() => {
-    if (!myNtfyTopic || typeof window === "undefined" || typeof EventSource === "undefined") {
-      setLiveStatus("off");
-      return;
-    }
-    setLiveStatus("connecting");
-    const es = new EventSource(`https://ntfy.sh/${encodeURIComponent(myNtfyTopic)}/sse`);
-    es.onopen = () => setLiveStatus("live");
-    es.onerror = () => {
-      // EventSource retries connections on its own per spec - just
-      // reflect that we're mid-reconnect while it does.
-      setLiveStatus("connecting");
-    };
-    es.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data) as { event?: string; title?: string; message?: string };
-        if (data.event !== "message" || !data.message) return; // skip "open"/keepalive frames
-        setNotice(data.message);
-        if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
-          new Notification(data.title || "Watch time update", { body: data.message });
-        }
-      } catch {
-        // malformed frame - ignore rather than crash the stream handler
-      }
-    };
-    return () => es.close();
-  }, [myNtfyTopic]);
 
   // Rolling window: "today + next 6 days" in *my own* timezone, read
   // fresh on every mount - so each side always sees calendar days as
@@ -429,53 +345,6 @@ export function WatchSchedule({
     return () => unsub();
   }, [connected]);
 
-  // Ask for browser-notification permission - either opportunistically the
-  // first time someone proposes a time, or explicitly via the bell button
-  // in the header. A real click/tap is required for the browser to allow
-  // the prompt at all, so both paths only ever fire from a user gesture.
-  function ensureNotificationPermission() {
-    if (typeof window === "undefined" || !("Notification" in window)) return;
-    if (Notification.permission === "default" && !askedPermissionRef.current) {
-      askedPermissionRef.current = true;
-      Notification.requestPermission().then(setNotifPermission);
-    }
-  }
-
-  function requestNotifications() {
-    if (typeof window === "undefined" || !("Notification" in window)) return;
-    askedPermissionRef.current = true;
-    Notification.requestPermission().then(setNotifPermission);
-  }
-
-  // Whenever a *new* pending proposal from the partner shows up, surface
-  // both an in-page banner and (if permitted) a real OS notification -
-  // the latter covers the case where this tab isn't focused/visible.
-  useEffect(() => {
-    if (seenPendingIds.current.size === 0 && proposals.length > 0) {
-      // First load: mark everything already sitting there as "seen" so
-      // opening the page doesn't re-announce old pending proposals.
-      proposals.forEach((p) => seenPendingIds.current.add(p.id));
-      return;
-    }
-    for (const p of proposals) {
-      if (p.proposedBy === whoAmI || p.status !== "pending") continue;
-      if (seenPendingIds.current.has(p.id)) continue;
-      seenPendingIds.current.add(p.id);
-      const at = p.at.toDate();
-      const text = `${otherName} suggested ${fmtDay(at, myTimezone)}, ${fmtTime(at, myTimezone)} (your time)`;
-      setNotice(text);
-      if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
-        new Notification("Watch time suggested 🐾", { body: text });
-      }
-    }
-  }, [proposals, whoAmI, otherName, myTimezone]);
-
-  useEffect(() => {
-    if (!notice) return;
-    const t = setTimeout(() => setNotice(null), 6000);
-    return () => clearTimeout(t);
-  }, [notice]);
-
   function proposalForDay(dateKey: string): Proposal | null {
     return proposals.find((p) => dateKeyInZone(p.at.toDate(), myTimezone) === dateKey) ?? null;
   }
@@ -512,7 +381,6 @@ export function WatchSchedule({
   async function propose(dateKey: string, hour: number, minute: number) {
     const db = getDb();
     if (!db) return;
-    ensureNotificationPermission();
     const utcMillis = zonedTimeToUtcMillis(dateKey, `${pad(hour)}:${pad(minute)}`, myTimezone);
     await addDoc(collection(db, SCHEDULE_COLLECTION), {
       at: Timestamp.fromMillis(utcMillis),
@@ -520,31 +388,12 @@ export function WatchSchedule({
       status: "pending",
       createdAt: serverTimestamp(),
     });
-    setNotice(`You suggested ${fmtDayFromKey(dateKey)}, ${pad(hour)}:${pad(minute)} (your time)`);
-    pushNtfy(
-      theirNtfyTopic,
-      "New watch time suggested",
-      // Deliberately re-render this in *their* timezone, not mine - the
-      // whole point of ntfy is it reaches them off-device, so the time
-      // has to already be theirs to read at a glance.
-      theirTimezone
-        ? `🐾 ${myName} suggested ${fmtDay(new Date(utcMillis), theirTimezone)}, ${fmtTime(new Date(utcMillis), theirTimezone)} (your time)`
-        : `🐾 ${myName} suggested a new watch time.`
-    );
   }
 
   async function agree(p: Proposal) {
     const db = getDb();
     if (!db) return;
     await updateDoc(doc(db, SCHEDULE_COLLECTION, p.id), { status: "agreed" });
-    const at = p.at.toDate();
-    pushNtfy(
-      theirNtfyTopic,
-      "Watch time agreed",
-      theirTimezone
-        ? `🐾 ${myName} agreed to ${fmtDay(at, theirTimezone)}, ${fmtTime(at, theirTimezone)} (your time)`
-        : `🐾 ${myName} agreed to your suggested time.`
-    );
   }
 
   async function withdraw(p: Proposal) {
@@ -557,23 +406,11 @@ export function WatchSchedule({
 
   return (
     <div className="card-surface overflow-hidden p-0">
-      {/* toast for a fresh proposal (either side) */}
-      <AnimatePresence>
-        {notice && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            className="flex items-center gap-2 border-b border-line bg-thread/[0.06] px-5 py-2.5 text-xs text-thread dark:border-line-dark"
-          >
-            <Bell className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{notice}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <div className="flex w-full items-center justify-between gap-3 px-5 py-4">
-        <button onClick={() => setExpanded((v) => !v)} className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm">
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
+      >
+        <span className="flex min-w-0 items-center gap-2 text-sm">
           <span className="font-medium">When are we watching?</span>
           {!expanded && pendingFromPartner && (
             <span className="truncate text-xs text-thread">
@@ -581,64 +418,9 @@ export function WatchSchedule({
               {fmtTime(pendingFromPartner.at.toDate(), myTimezone)} - waiting on you
             </span>
           )}
-        </button>
-        <span className="flex shrink-0 items-center gap-1">
-          {myNtfyTopic && (
-            <span
-              title={
-                liveStatus === "live"
-                  ? "Listening live on this page - no app needed while it's open"
-                  : liveStatus === "connecting"
-                    ? "Reconnecting to live updates..."
-                    : "Live updates unavailable in this browser"
-              }
-              className="flex items-center gap-1 pr-1 text-[10px] text-mist"
-            >
-              <span
-                className={cn(
-                  "h-1.5 w-1.5 rounded-full",
-                  liveStatus === "live" ? "bg-emerald-500" : liveStatus === "connecting" ? "bg-amber-400" : "bg-mist/40"
-                )}
-              />
-              live
-            </span>
-          )}
-          {notifPermission !== "unsupported" && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (notifPermission === "default") requestNotifications();
-              }}
-              title={
-                notifPermission === "granted"
-                  ? "Browser notifications are on"
-                  : notifPermission === "denied"
-                    ? "Notifications blocked - enable them for this site in your browser settings"
-                    : "Turn on browser notifications for new suggestions"
-              }
-              className={cn(
-                "grid h-8 w-8 shrink-0 place-items-center rounded-full border transition-colors",
-                notifPermission === "granted"
-                  ? "border-thread text-thread"
-                  : notifPermission === "denied"
-                    ? "border-line text-mist/50"
-                    : "border-line text-mist hover:border-thread hover:text-thread dark:border-line-dark"
-              )}
-            >
-              {notifPermission === "granted" ? (
-                <BellRing className="h-3.5 w-3.5" />
-              ) : notifPermission === "denied" ? (
-                <BellOff className="h-3.5 w-3.5" />
-              ) : (
-                <Bell className="h-3.5 w-3.5" />
-              )}
-            </button>
-          )}
-          <button onClick={() => setExpanded((v) => !v)} className="grid h-8 w-8 place-items-center">
-            <ChevronDown className={cn("h-4 w-4 shrink-0 text-mist transition-transform", expanded && "rotate-180")} />
-          </button>
         </span>
-      </div>
+        <ChevronDown className={cn("h-4 w-4 shrink-0 text-mist transition-transform", expanded && "rotate-180")} />
+      </button>
 
       <AnimatePresence initial={false}>
         {expanded && (

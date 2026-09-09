@@ -45,12 +45,6 @@ export const site = {
       university: "Sungkyunkwan University",
       major: "Software Engineering",
       timezone: "Asia/Seoul",
-      // ntfy.sh topic HE subscribes to on his phone/desktop - Nicol's
-      // side of the code publishes here when she proposes/agrees on a
-      // watch time. Random suffix so it isn't guessable; ntfy topics
-      // have no built-in privacy otherwise. Change it any time - just
-      // update the subscription in the ntfy app to match.
-      ntfyTopic: "mn-watch-misha-42432d20ed32",
       languages: ["Russian", "English", "Korean"],
       hobbies: [
         "Cooking",
@@ -82,8 +76,6 @@ export const site = {
       note: "Currently studying and interning in the Czech Republic",
       major: "Law",
       timezone: "Europe/Prague",
-      // Same idea, her own topic - Misha's side publishes here.
-      ntfyTopic: "mn-watch-nicol-5b80cf1de01e",
       languages: ["English", "Slovak"],
       hobbies: [
         "Reads a couple of ongoing translated web-novel series",
